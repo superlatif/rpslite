@@ -11,8 +11,13 @@ class TbCustomerForm
     public static function configure(Schema $schema): Schema
     {
         return $schema
-            ->components([
-                Group::make()
+           ->components(static::components());
+    }
+
+     public static function components(): array
+    {
+        return [
+            Group::make()
                     ->columnSpanFull()
                     ->inlineLabel(true)
                     ->schema([
@@ -28,6 +33,5 @@ class TbCustomerForm
                             ->maxLength(30),
 
                     ]),
-            ]);
-    }
+        ];}
 }

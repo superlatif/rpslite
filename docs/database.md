@@ -32,10 +32,10 @@ tb_cates (kategori)
 | `code` | string(15) unique | Kode barang (otomatis 8 digit) |
 | `descr` | string(50) | Nama barang |
 | `satuan` | string(15) | Satuan, default `PCS` |
-| `harga_beli` | decimal(15,2) | Harga beli dari supplier |
-| `harga_jual` | decimal(15,2) | Harga jual ke customer |
-| `harga_pokok` | decimal(15,2) | Harga pokok (HPP) saat ini |
-| `stock` | integer | Jumlah stok tersedia |
+| `harga_beli` | decimal(15,2) | Harga beli dari supplier (default 0) |
+| `harga_jual` | decimal(15,2) | Harga jual ke customer (default 0) |
+| `harga_pokok` | decimal(15,2) | Harga pokok (HPP) — dikelola otomatis, default 0 |
+| `stock` | integer | Jumlah stok tersedia (default 0) |
 | `gambar` | text nullable | Path gambar item |
 | `tb_cate_id` | FK → `tb_cates` | Kategori (nullable, restrictOnDelete) |
 | `created_at` / `updated_at` | timestamp | |
@@ -46,8 +46,8 @@ tb_cates (kategori)
 | --- | --- | --- |
 | `id` | bigint (PK) | |
 | `descr` | string(30) | Nama customer |
-| `alamat` | string(50) | Alamat |
-| `phone` | string(30) | No. HP / WA |
+| `alamat` | string(50) nullable | Alamat |
+| `phone` | string(30) nullable | No. HP / WA |
 | `created_at` / `updated_at` | timestamp | |
 
 ### `suppliers` — Supplier
@@ -56,8 +56,8 @@ tb_cates (kategori)
 | --- | --- | --- |
 | `id` | bigint (PK) | |
 | `descr` | string(30) | Nama supplier |
-| `alamat` | string(50) | Alamat |
-| `phone` | string(30) | No. HP / WA |
+| `alamat` | string(50) nullable | Alamat |
+| `phone` | string(30) nullable | No. HP / WA |
 | `created_at` / `updated_at` | timestamp | |
 
 ### `tr_headers` — Header Transaksi
@@ -65,13 +65,13 @@ tb_cates (kategori)
 | Kolom | Tipe | Keterangan |
 | --- | --- | --- |
 | `id` | bigint (PK) | |
-| `trs_number` | string(10) unique | Nomor transaksi (`PB-xxxxxx` / `PJ-xxxxxx`) |
+| `trs_number` | string(10) unique | Nomor transaksi (`PB-`/`RPB-`/`PJ-`/`RPJ-`/`OP-xxxxxx`) |
 | `trs_date` | date | Tanggal transaksi |
 | `trr_type` | enum | `PURCHASE` / `PURCHASE_RET` / `SALE` / `SALE_RET` / `OPNAME` |
 | `customer_id` | FK → `customers` nullable | Diisi untuk SALE & SALE_RET (nullOnDelete) |
 | `supplier_id` | FK → `suppliers` nullable | Diisi untuk PURCHASE & PURCHASE_RET (nullOnDelete) |
 | `total_amount` | decimal(15,2) | Total nilai transaksi |
-| `trs_type` | tinyint | `0` = tunai, `1` = kredit |
+| `trs_type` | unsignedTinyInteger | `0` = tunai, `1` = kredit |
 | `paid_amount` | decimal(15,2) | Total yang sudah dibayar |
 | `remaining_amount` | decimal(15,2) | Sisa tagihan (piutang) |
 | `created_at` / `updated_at` | timestamp | |
@@ -85,7 +85,7 @@ tb_cates (kategori)
 | `id` | bigint (PK) | |
 | `tr_header_id` | FK → `tr_headers` | Cascade on delete |
 | `stock_id` | FK → `tb_stocks` | Barang (restrictOnDelete) |
-| `qty` | decimal(10,2) | Jumlah (absolut) |
+| `qty` | decimal(10,2) | Jumlah. Absolut untuk semua tipe **kecuali** `OPNAME` yang bertanda (positif = surplus, negatif = shortage) |
 | `unit_price` | decimal(15,2) | Harga satuan saat transaksi |
 | `hpp_at_transaction` | decimal(15,2) | **Snapshot HPP** saat transaksi — jangan diubah setelah diposting |
 | `subtotal` | decimal(15,2) | `qty × unit_price` |
@@ -109,6 +109,7 @@ tb_cates (kategori)
 
 ## Catatan Penting
 
-- **`trr_type` adalah enum**, bukan tinyint. Resource memfilter lewat kolom ini (`PURCHASE` / `SALE`).
+- **`trr_type` adalah enum**, bukan tinyint: `PURCHASE`, `PURCHASE_RET`, `SALE`, `SALE_RET`, `OPNAME`. Resource memfilter lewat kolom ini.
 - **`hpp_at_transaction` bersifat immutable** — setelah transaksi diposting nilainya tidak boleh diubah, karena menjadi dasar perhitungan laba.
-- **Arah stok ditentukan dari tipe header**, bukan dari nilai negatif `qty`: pembelian menambah, penjualan mengurangi.
+- **`harga_pokok` dikelola otomatis**: saat barang belum punya transaksi pembelian, `harga_pokok = harga_beli` (via event `saving`). Setelah ada pembelian, `recalculateHpp()` menghitung HPP rata-rata tertimbang (`SUM(subtotal) / SUM(qty)` dari detail pembelian). Kolom ini tidak diinput manual di form.
+- **Arah stok ditentukan dari tipe header**, bukan dari nilai negatif `qty` (kecuali opname): pembelian & retur penjualan menambah, penjualan & retur pembelian mengurangi, opname menyetel stok ke nilai fisik.

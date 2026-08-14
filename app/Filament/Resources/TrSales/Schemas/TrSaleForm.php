@@ -2,6 +2,8 @@
 
 namespace App\Filament\Resources\TrSales\Schemas;
 
+use App\Filament\Resources\TbCustomers\Schemas\TbCustomerForm;
+use App\Models\Customer;
 use App\Models\TbStock;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Repeater;
@@ -30,6 +32,8 @@ class TrSaleForm
                             ->relationship('customer', 'descr')
                             ->searchable()
                             ->preload()
+                             ->createOptionForm(fn (): array => TbCustomerForm::components())
+                            ->createOptionUsing(fn (array $data) => Customer::create($data)->getKey())
                             ->live()
                             ->afterStateUpdated(function ($state, callable $set) {
                                 // Jika customer dipilih, biarkan trs_type bisa diubah (opsional)

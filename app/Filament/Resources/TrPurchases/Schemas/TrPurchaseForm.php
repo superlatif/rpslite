@@ -2,6 +2,9 @@
 
 namespace App\Filament\Resources\TrPurchases\Schemas;
 
+use App\Filament\Resources\TbStocks\Schemas\TbStockForm;
+use App\Filament\Resources\TbSuppliers\Schemas\TbSupplierForm;
+use App\Models\Supplier;
 use App\Models\TbStock;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Repeater;
@@ -31,6 +34,8 @@ class TrPurchaseForm
                             ->searchable()
                             ->preload()
                             ->live()
+                            ->createOptionForm(fn (): array => TbSupplierForm::components())
+                            ->createOptionUsing(fn (array $data) => Supplier::create($data)->getKey())
                             ->afterStateUpdated(function ($state, callable $set) {
                                 // Jika supplier dipilih, biarkan trs_type bisa diubah (opsional)
                                 // Jika supplier dikosongkan, set trs_type ke 0
@@ -98,6 +103,10 @@ class TrPurchaseForm
                             ->searchable()
                             ->preload()
                             ->required()
+                            ->createOptionForm(fn (Schema $schema): Schema => $schema
+                                ->model(TbStock::class)
+                                ->components(TbStockForm::components()))
+                            ->createOptionUsing(fn (array $data) => TbStock::create($data)->getKey())
                             ->live()
 
                             ->afterStateUpdated(
