@@ -1,8 +1,8 @@
 <?php
 
-namespace App\Filament\Resources\TrSales\Pages;
+namespace App\Filament\Resources\TrPurchaseReturns\Pages;
 
-use App\Filament\Resources\TrSales\TrSaleResource;
+use App\Filament\Resources\TrPurchaseReturns\TrPurchaseReturnResource;
 use App\Models\TbStock;
 use App\Models\TrHeader;
 use Filament\Actions\CreateAction;
@@ -11,23 +11,23 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
-class ListTrSales extends ListRecords
+class ListTrPurchaseReturns extends ListRecords
 {
-    protected static string $resource = TrSaleResource::class;
+    protected static string $resource = TrPurchaseReturnResource::class;
 
     protected function getHeaderActions(): array
     {
         return [
             CreateAction::make()
-                ->label('Tambah Penjualan')
+                ->label('Tambah Retur Pembelian')
                 ->modalSubmitActionLabel('Simpan')
                 ->modalCancelActionLabel('Batal')
                 ->databaseTransaction()
-                ->using(fn (array $data): Model => $this->createSale($data)),
+                ->using(fn (array $data): Model => $this->createPurchaseReturn($data)),
         ];
     }
 
-    protected function createSale(array $data): Model
+    protected function createPurchaseReturn(array $data): Model
     {
         return DB::transaction(function () use ($data) {
 
@@ -46,10 +46,10 @@ class ListTrSales extends ListRecords
             // HEADER
             // =========================
             $header = TrHeader::create([
-                'trs_number' => $this->generateNumber('PJ'),
+                'trs_number' => $this->generateNumber('RPB'),
                 'trs_date' => $data['trs_date'],
-                'trr_type' => 'SALE',
-                'customer_id' => $data['customer_id'] ?? null,
+                'trr_type' => 'PURCHASE_RET',
+                'supplier_id' => $data['supplier_id'],
                 'total_amount' => $total,
                 'trs_type' => $isKredit ? 1 : 0,
                 'paid_amount' => $isKredit ? 0 : $total,
@@ -72,7 +72,7 @@ class ListTrSales extends ListRecords
 
                 if ((float) $stock->stock < (float) $row['qty']) {
                     throw ValidationException::withMessages([
-                        "details.{$index}.stock_id" => "Stok '{$stock->descr}' tersedia {$stock->stock}.",
+                        "details.{$index}.stock_id" => "Stok '{$stock->descr}' hanya tersedia {$stock->stock}.",
                     ]);
                 }
 
@@ -118,7 +118,6 @@ class ListTrSales extends ListRecords
                     'stock_id' => $row['stock_id'],
                     'qty' => $qty,
                     'unit_price' => $price,
-                    'hpp_at_transaction' => (float) (TbStock::find($row['stock_id'])?->harga_pokok ?? 0),
                     'subtotal' => round($qty * $price, 2),
                 ];
             })

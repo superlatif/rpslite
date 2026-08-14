@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Filament\Resources\TrPurchases\Schemas;
+namespace App\Filament\Resources\TrPurchaseReturns\Schemas;
 
 use App\Models\TbStock;
 use Filament\Forms\Components\DatePicker;
@@ -13,7 +13,7 @@ use Filament\Schemas\Components\Group;
 use Filament\Schemas\Schema;
 use Filament\Support\RawJs;
 
-class TrPurchaseForm
+class TrPurchaseReturnForm
 {
     public static function configure(Schema $schema): Schema
     {
@@ -50,8 +50,8 @@ class TrPurchaseForm
                         //     ->helperText(fn (callable $get) => blank($get('supplier_id')) ? 'Pilih supplier terlebih dahulu' : null)
                         //     ->required(),
                     ]),
-
                 ])->columnSpanFull(),
+
                 TextInput::make('total_amount')
                     ->prefix('Grand Total')
                     ->hiddenLabel()
@@ -60,11 +60,11 @@ class TrPurchaseForm
                     ->readOnly()
                     ->dehydrated()
                     ->default(0)
-                    ->extraInputAttributes(['style' => 'text-align: center'])
+                    ->extraInputAttributes(['style' => 'text-align: right'])
                     ->columnSpanFull(),
 
                 Repeater::make('details')
-                    ->label('Detail Pembelian')
+                    ->label('Detail Retur Pembelian')
                     ->columnSpanFull()
                     ->reorderable(false)
                     ->live()
@@ -103,6 +103,7 @@ class TrPurchaseForm
                             ->afterStateUpdated(
                                 function ($state, callable $set, callable $get) {
                                     $stock = TbStock::find($state);
+
                                     if ($stock) {
                                         $set(
                                             'unit_price',
@@ -153,38 +154,17 @@ class TrPurchaseForm
                     ->defaultItems(1)
                     ->required()
                     ->addActionLabel('Tambah Barang'),
-
-                // TextInput::make('total_amount')
-                //     ->prefix('Grand Total')
-                //     ->hiddenLabel()
-                //     ->mask(RawJs::make('$money($input)'))
-                //     ->stripCharacters(',')
-                //     ->readOnly()
-                //     ->dehydrated()
-                //     ->default(0)
-                //     ->columnSpanFull(),
             ]);
     }
 
-    protected static function updateSubtotal(callable $get, callable $set): void
+    protected static function calculateSubtotal(callable $set, callable $get): void
     {
-        $qty = floatval($get('qty') ?? 0);
-        $price = floatval($get('unit_price') ?? 0);
-        $set('subtotal', number_format($qty * $price, 2, '.', ''));
-    }
-
-    protected static function calculateSubtotal(
-        callable $set,
-        callable $get
-    ): void {
         $qty = (float) ($get('qty') ?? 0);
         $price = (float) ($get('unit_price') ?? 0);
 
-        $subtotal = $qty * $price;
-
         $set(
             'subtotal',
-            number_format($subtotal, 2, '.', '')
+            number_format($qty * $price, 2, '.', '')
         );
     }
 

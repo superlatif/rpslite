@@ -40,7 +40,7 @@ class AdminPanelProvider extends PanelProvider
             ->sidebarCollapsibleOnDesktop()
             ->widgets([
                 AccountWidget::class,
-                FilamentInfoWidget::class,
+                //  FilamentInfoWidget::class,
             ])
 
             ->middleware([

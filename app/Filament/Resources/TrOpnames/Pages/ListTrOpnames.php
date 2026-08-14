@@ -1,8 +1,8 @@
 <?php
 
-namespace App\Filament\Resources\TrSales\Pages;
+namespace App\Filament\Resources\TrOpnames\Pages;
 
-use App\Filament\Resources\TrSales\TrSaleResource;
+use App\Filament\Resources\TrOpnames\TrOpnameResource;
 use App\Models\TbStock;
 use App\Models\TrHeader;
 use Filament\Actions\CreateAction;
@@ -11,49 +11,42 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
-class ListTrSales extends ListRecords
+class ListTrOpnames extends ListRecords
 {
-    protected static string $resource = TrSaleResource::class;
+    protected static string $resource = TrOpnameResource::class;
 
     protected function getHeaderActions(): array
     {
         return [
             CreateAction::make()
-                ->label('Tambah Penjualan')
+                ->label('Tambah Opname')
                 ->modalSubmitActionLabel('Simpan')
                 ->modalCancelActionLabel('Batal')
                 ->databaseTransaction()
-                ->using(fn (array $data): Model => $this->createSale($data)),
+                ->using(fn (array $data): Model => $this->createOpname($data)),
         ];
     }
 
-    protected function createSale(array $data): Model
+    protected function createOpname(array $data): Model
     {
         return DB::transaction(function () use ($data) {
 
-            // Siapkan detail dan hitung total dari server
+            // Siapkan detail dan hitung selisih dari server
             $details = $this->prepareDetails(
                 $data['details'] ?? []
             );
-
-            $total = array_sum(
-                array_column($details, 'subtotal')
-            );
-
-            $isKredit = (int) ($data['trs_type'] ?? 0) === 1;
 
             // =========================
             // HEADER
             // =========================
             $header = TrHeader::create([
-                'trs_number' => $this->generateNumber('PJ'),
+                'trs_number' => $this->generateNumber('OP'),
                 'trs_date' => $data['trs_date'],
-                'trr_type' => 'SALE',
-                'customer_id' => $data['customer_id'] ?? null,
-                'total_amount' => $total,
-                'trs_type' => $isKredit ? 1 : 0,
-                'paid_amount' => $isKredit ? 0 : $total,
-                'remaining_amount' => $isKredit ? $total : 0,
+                'trr_type' => 'OPNAME',
+                'total_amount' => 0,
+                'trs_type' => 0,
+                'paid_amount' => 0,
+                'remaining_amount' => 0,
             ]);
 
             // =========================
@@ -64,22 +57,12 @@ class ListTrSales extends ListRecords
             // =========================
             // INVENTORY
             // =========================
-            foreach ($details as $index => $row) {
+            foreach ($details as $row) {
 
-                $stock = TbStock::query()
+                TbStock::query()
                     ->lockForUpdate()
-                    ->findOrFail($row['stock_id']);
-
-                if ((float) $stock->stock < (float) $row['qty']) {
-                    throw ValidationException::withMessages([
-                        "details.{$index}.stock_id" => "Stok '{$stock->descr}' tersedia {$stock->stock}.",
-                    ]);
-                }
-
-                $stock->decrement(
-                    'stock',
-                    (float) $row['qty']
-                );
+                    ->whereKey($row['stock_id'])
+                    ->update(['stock' => $row['stok_fisik']]);
             }
 
             return $header;
@@ -105,21 +88,23 @@ class ListTrSales extends ListRecords
         return collect($details)
             ->map(function (array $row) {
 
-                $qty = (float) ($row['qty'] ?? 0);
-                $price = (float) ($row['unit_price'] ?? 0);
+                $stock = TbStock::findOrFail($row['stock_id']);
+                $sistem = (float) $stock->stock;
+                $fisik = (float) ($row['stok_fisik'] ?? 0);
 
-                if ($qty <= 0) {
+                if ($fisik < 0) {
                     throw ValidationException::withMessages([
-                        'details' => 'Qty harus lebih besar dari 0.',
+                        'details' => 'Stok fisik tidak boleh negatif.',
                     ]);
                 }
 
                 return [
                     'stock_id' => $row['stock_id'],
-                    'qty' => $qty,
-                    'unit_price' => $price,
-                    'hpp_at_transaction' => (float) (TbStock::find($row['stock_id'])?->harga_pokok ?? 0),
-                    'subtotal' => round($qty * $price, 2),
+                    'stok_fisik' => $fisik,
+                    'qty' => round($fisik - $sistem, 2),
+                    'unit_price' => 0,
+                    'hpp_at_transaction' => (float) $stock->harga_pokok,
+                    'subtotal' => 0,
                 ];
             })
             ->values()

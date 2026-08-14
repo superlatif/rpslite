@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Filament\Resources\TrPurchases\Tables;
+namespace App\Filament\Resources\TrSaleReturns\Tables;
 
 use Carbon\Carbon;
 use Filament\Forms\Components\DatePicker;
@@ -10,7 +10,7 @@ use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 
-class TrPurchasesTable
+class TrSaleReturnsTable
 {
     public static function configure(Table $table): Table
     {
@@ -24,8 +24,8 @@ class TrPurchasesTable
                     ->label('Tanggal')
                     ->date('d M Y')
                     ->sortable(),
-                TextColumn::make('supplier.descr')
-                    ->label('Supplier'),
+                TextColumn::make('customer.descr')
+                    ->label('Customer'),
                 TextColumn::make('total_amount')
                     ->label('Total')
                     ->numeric(2, '.', ',')
@@ -53,9 +53,9 @@ class TrPurchasesTable
                         0 => 'Tunai',
                         1 => 'Kredit',
                     ]),
-                SelectFilter::make('supplier_id')
-                    ->label('Supplier')
-                    ->relationship('supplier', 'descr')
+                SelectFilter::make('customer_id')
+                    ->label('Customer')
+                    ->relationship('customer', 'descr')
                     ->searchable()
                     ->preload(),
                 Filter::make('trs_date')

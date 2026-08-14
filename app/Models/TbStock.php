@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Facades\Storage;
 
 class TbStock extends Model
 {
@@ -23,6 +24,13 @@ class TbStock extends Model
         static::saving(function (TbStock $stock): void {
             if ($stock->hasNoPurchaseTransactions()) {
                 $stock->harga_pokok = $stock->harga_beli;
+            }
+        });
+
+        static::deleting(function (TbStock $stock) {
+            // Cek apakah ada gambar dan file tersebut benar-benar ada
+            if ($stock->gambar && Storage::disk('public/items')->exists($stock->gambar)) {
+                Storage::disk('public/items')->delete($stock->gambar);
             }
         });
     }

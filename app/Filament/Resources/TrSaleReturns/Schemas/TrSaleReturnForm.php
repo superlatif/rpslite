@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Filament\Resources\TrPurchases\Schemas;
+namespace App\Filament\Resources\TrSaleReturns\Schemas;
 
 use App\Models\TbStock;
 use Filament\Forms\Components\DatePicker;
@@ -13,45 +13,45 @@ use Filament\Schemas\Components\Group;
 use Filament\Schemas\Schema;
 use Filament\Support\RawJs;
 
-class TrPurchaseForm
+class TrSaleReturnForm
 {
     public static function configure(Schema $schema): Schema
     {
         return $schema
             ->components([
                 Group::make([
-                    Grid::make(2)->schema([
+                    Grid::make(3)->schema([
                         DatePicker::make('trs_date')
                             ->label('Tanggal')
                             ->required()
                             ->default(now()),
-                        Select::make('supplier_id')
-                            ->label('Supplier')
-                            ->relationship('supplier', 'descr')
+                        Select::make('customer_id')
+                            ->label('Customer')
+                            ->relationship('customer', 'descr')
                             ->searchable()
                             ->preload()
                             ->live()
                             ->afterStateUpdated(function ($state, callable $set) {
-                                // Jika supplier dipilih, biarkan trs_type bisa diubah (opsional)
-                                // Jika supplier dikosongkan, set trs_type ke 0
+                                // Jika customer dipilih, biarkan trs_type bisa diubah (opsional)
+                                // Jika customer dikosongkan, set trs_type ke 0
                                 if (blank($state)) {
                                     $set('trs_type', 0);
                                 }
                             }),
-                        // Select::make('trs_type')
-                        //     ->label('Jenis Pembayaran')
-                        //     ->options([
-                        //         0 => 'Tunai',
-                        //         1 => 'Kredit',
-                        //     ])
-                        //     ->default(0)
-                        //     ->disabled(fn (callable $get) => blank($get('supplier_id'))) // Disable jika supplier kosong
-                        //     ->dehydrated(fn (callable $get) => filled($get('supplier_id'))) // Hanya kirim data ke DB jika supplier ada
-                        //     ->helperText(fn (callable $get) => blank($get('supplier_id')) ? 'Pilih supplier terlebih dahulu' : null)
-                        //     ->required(),
+                        Select::make('trs_type')
+                            ->label('Jenis Pembayaran')
+                            ->options([
+                                0 => 'Tunai',
+                                1 => 'Kredit',
+                            ])
+                            ->default(0)
+                            ->disabled(fn (callable $get) => blank($get('customer_id'))) // Disable jika customer kosong
+                            ->dehydrated(fn (callable $get) => filled($get('customer_id'))) // Hanya kirim data ke DB jika customer ada
+                            ->helperText(fn (callable $get) => blank($get('customer_id')) ? 'Pilih customer terlebih dahulu' : null)
+                            ->required(),
                     ]),
-
                 ])->columnSpanFull(),
+
                 TextInput::make('total_amount')
                     ->prefix('Grand Total')
                     ->hiddenLabel()
@@ -60,11 +60,11 @@ class TrPurchaseForm
                     ->readOnly()
                     ->dehydrated()
                     ->default(0)
-                    ->extraInputAttributes(['style' => 'text-align: center'])
+                    ->extraInputAttributes(['style' => 'text-align: right'])
                     ->columnSpanFull(),
 
                 Repeater::make('details')
-                    ->label('Detail Pembelian')
+                    ->label('Detail Retur Penjualan')
                     ->columnSpanFull()
                     ->reorderable(false)
                     ->live()
@@ -103,10 +103,11 @@ class TrPurchaseForm
                             ->afterStateUpdated(
                                 function ($state, callable $set, callable $get) {
                                     $stock = TbStock::find($state);
+
                                     if ($stock) {
                                         $set(
                                             'unit_price',
-                                            $stock->harga_beli
+                                            $stock->harga_jual
                                         );
 
                                         self::calculateSubtotal($set, $get);
@@ -153,38 +154,17 @@ class TrPurchaseForm
                     ->defaultItems(1)
                     ->required()
                     ->addActionLabel('Tambah Barang'),
-
-                // TextInput::make('total_amount')
-                //     ->prefix('Grand Total')
-                //     ->hiddenLabel()
-                //     ->mask(RawJs::make('$money($input)'))
-                //     ->stripCharacters(',')
-                //     ->readOnly()
-                //     ->dehydrated()
-                //     ->default(0)
-                //     ->columnSpanFull(),
             ]);
     }
 
-    protected static function updateSubtotal(callable $get, callable $set): void
+    protected static function calculateSubtotal(callable $set, callable $get): void
     {
-        $qty = floatval($get('qty') ?? 0);
-        $price = floatval($get('unit_price') ?? 0);
-        $set('subtotal', number_format($qty * $price, 2, '.', ''));
-    }
-
-    protected static function calculateSubtotal(
-        callable $set,
-        callable $get
-    ): void {
         $qty = (float) ($get('qty') ?? 0);
         $price = (float) ($get('unit_price') ?? 0);
 
-        $subtotal = $qty * $price;
-
         $set(
             'subtotal',
-            number_format($subtotal, 2, '.', '')
+            number_format($qty * $price, 2, '.', '')
         );
     }
 

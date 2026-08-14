@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Filament\Resources\TrPurchases\Tables;
+namespace App\Filament\Resources\TrPurchaseReturns\Tables;
 
 use Carbon\Carbon;
 use Filament\Forms\Components\DatePicker;
@@ -10,7 +10,7 @@ use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 
-class TrPurchasesTable
+class TrPurchaseReturnsTable
 {
     public static function configure(Table $table): Table
     {

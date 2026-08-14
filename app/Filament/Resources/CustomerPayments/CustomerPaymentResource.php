@@ -21,7 +21,7 @@ class CustomerPaymentResource extends Resource
 
     protected static ?string $recordTitleAttribute = 'amount';
 
-    protected static ?int $navigationSort = 3;
+    protected static ?int $navigationSort = 7;
 
     protected static ?string $modelLabel = 'Angsuran Customer';
 

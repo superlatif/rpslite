@@ -1,8 +1,8 @@
 <?php
 
-namespace App\Filament\Resources\TrSales\Pages;
+namespace App\Filament\Resources\TrSaleReturns\Pages;
 
-use App\Filament\Resources\TrSales\TrSaleResource;
+use App\Filament\Resources\TrSaleReturns\TrSaleReturnResource;
 use App\Models\TbStock;
 use App\Models\TrHeader;
 use Filament\Actions\CreateAction;
@@ -11,23 +11,23 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
-class ListTrSales extends ListRecords
+class ListTrSaleReturns extends ListRecords
 {
-    protected static string $resource = TrSaleResource::class;
+    protected static string $resource = TrSaleReturnResource::class;
 
     protected function getHeaderActions(): array
     {
         return [
             CreateAction::make()
-                ->label('Tambah Penjualan')
+                ->label('Tambah Retur Penjualan')
                 ->modalSubmitActionLabel('Simpan')
                 ->modalCancelActionLabel('Batal')
                 ->databaseTransaction()
-                ->using(fn (array $data): Model => $this->createSale($data)),
+                ->using(fn (array $data): Model => $this->createSaleReturn($data)),
         ];
     }
 
-    protected function createSale(array $data): Model
+    protected function createSaleReturn(array $data): Model
     {
         return DB::transaction(function () use ($data) {
 
@@ -46,9 +46,9 @@ class ListTrSales extends ListRecords
             // HEADER
             // =========================
             $header = TrHeader::create([
-                'trs_number' => $this->generateNumber('PJ'),
+                'trs_number' => $this->generateNumber('RPJ'),
                 'trs_date' => $data['trs_date'],
-                'trr_type' => 'SALE',
+                'trr_type' => 'SALE_RET',
                 'customer_id' => $data['customer_id'] ?? null,
                 'total_amount' => $total,
                 'trs_type' => $isKredit ? 1 : 0,
@@ -64,19 +64,13 @@ class ListTrSales extends ListRecords
             // =========================
             // INVENTORY
             // =========================
-            foreach ($details as $index => $row) {
+            foreach ($details as $row) {
 
                 $stock = TbStock::query()
                     ->lockForUpdate()
                     ->findOrFail($row['stock_id']);
 
-                if ((float) $stock->stock < (float) $row['qty']) {
-                    throw ValidationException::withMessages([
-                        "details.{$index}.stock_id" => "Stok '{$stock->descr}' tersedia {$stock->stock}.",
-                    ]);
-                }
-
-                $stock->decrement(
+                $stock->increment(
                     'stock',
                     (float) $row['qty']
                 );

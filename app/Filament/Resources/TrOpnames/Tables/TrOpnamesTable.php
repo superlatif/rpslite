@@ -1,16 +1,15 @@
 <?php
 
-namespace App\Filament\Resources\TrPurchases\Tables;
+namespace App\Filament\Resources\TrOpnames\Tables;
 
 use Carbon\Carbon;
 use Filament\Forms\Components\DatePicker;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\Filter;
-use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 
-class TrPurchasesTable
+class TrOpnamesTable
 {
     public static function configure(Table $table): Table
     {
@@ -24,43 +23,12 @@ class TrPurchasesTable
                     ->label('Tanggal')
                     ->date('d M Y')
                     ->sortable(),
-                TextColumn::make('supplier.descr')
-                    ->label('Supplier'),
-                TextColumn::make('total_amount')
-                    ->label('Total')
-                    ->numeric(2, '.', ',')
-                    ->alignEnd(),
-                TextColumn::make('trs_type')
-                    ->label('Jenis')
-                    ->badge()
-                    ->formatStateUsing(fn (mixed $state): string => (int) $state === 1 ? 'Kredit' : 'Tunai')
-                    ->color(fn (mixed $state): string => (int) $state === 1 ? 'warning' : 'success'),
-                TextColumn::make('paid_amount')
-                    ->label('Dibayar')
-                    ->numeric(2, '.', ',')
-                    ->alignEnd(),
-                TextColumn::make('remaining_amount')
-                    ->label('Sisa')
-                    ->numeric(2, '.', ',')
-                    ->alignEnd()
-                    ->color(fn (mixed $state): string => (float) $state > 0 ? 'danger' : 'success'),
+                TextColumn::make('details_count')
+                    ->label('Jumlah Barang'),
             ])
             ->defaultSort('trs_number', 'desc')
             ->filters([
-                SelectFilter::make('trs_type')
-                    ->label('Jenis')
-                    ->options([
-                        0 => 'Tunai',
-                        1 => 'Kredit',
-                    ]),
-                SelectFilter::make('supplier_id')
-                    ->label('Supplier')
-                    ->relationship('supplier', 'descr')
-                    ->searchable()
-                    ->preload(),
                 Filter::make('trs_date')
-                    // ->label('Tanggal Transaksi')
-                    // ->indicator('test')
                     ->schema([
                         DatePicker::make('date_from')
                             ->label('Transaksi mulai dari')
@@ -83,7 +51,6 @@ class TrPurchasesTable
                             );
                     })
                     ->indicateUsing(function (array $data): ?string {
-                        // Jika tidak ada data yang dipilih, kembalikan null (tidak ada indikator)
                         if (! filled($data['date_from']) && ! filled($data['date_until'])) {
                             return null;
                         }
@@ -98,7 +65,6 @@ class TrPurchasesTable
                             $indicators[] = 'Sampai: '.Carbon::parse($data['date_until'])->format('d M Y');
                         }
 
-                        // Gabungkan indikator menjadi satu string
                         return implode(' - ', $indicators);
                     }),
             ])->persistFiltersInSession()

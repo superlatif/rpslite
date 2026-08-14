@@ -42,10 +42,10 @@ class CustomerPaymentsTable
                         ->requiresConfirmation()
                         ->databaseTransaction()
                         ->action(function (CustomerPayment $record): void {
-                            if ($header = $record->header) {
-                                $header->decrement('paid_amount', (float) $record->amount);
-                                $header->increment('remaining_amount', (float) $record->amount);
-                            }
+                            $record->customer->reversePayment(
+                                (float) $record->amount,
+                                $record->tr_header_id,
+                            );
 
                             $record->delete();
                         }),
