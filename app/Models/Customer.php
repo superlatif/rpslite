@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Collection;
 
 class Customer extends Model
 {
@@ -45,9 +46,9 @@ class Customer extends Model
     }
 
     /**
-     * Menerapkan pembayaran ke header penjualan kredit secara FIFO
-     * (transaksi paling lama lebih dulu). Bila $invoiceId diberikan,
-     * pembayaran hanya diterapkan ke header tersebut.
+     * Menerapkan pembayaran ke piutang customer secara proporsional
+     * (penjualan kredit dan retur penjualan kredit). Bila $invoiceId
+     * diberikan, bagian penjualan didahulukan ke header tersebut.
      */
     public function applyPayment(float $amount, ?int $invoiceId = null): void
     {
@@ -56,28 +57,80 @@ class Customer extends Model
 
     /**
      * Membatalkan pembayaran dengan mengembalikan sisa tagihan
-     * ke header penjualan kredit (kebalikan dari applyPayment).
+     * (kebalikan dari applyPayment).
      */
     public function reversePayment(float $amount, ?int $invoiceId = null): void
     {
         $this->allocate($amount, $invoiceId, subtract: false);
     }
 
+    /**
+     * Mengalokasikan pembayaran secara proporsional: piutang bersih
+     * berkurang sebesar $amount, sedangkan sisa retur penjualan kredit
+     * ikut dikonsumsi sebanding dengan porsinya terhadap posisi customer.
+     * Bagian penjualan dialokasikan FIFO (bila $invoiceId diberikan, header
+     * tersebut didahulukan dan kelebihan mengalir ke invoice lain), bagian
+     * retur dialokasikan FIFO ke transaksi SALE_RET.
+     */
     private function allocate(float $amount, ?int $invoiceId, bool $subtract): void
     {
         $remaining = round($amount, 2);
 
-        $query = $this->headers()
+        if ($remaining <= 0) {
+            return;
+        }
+
+        $saleHeaders = $this->headers()
             ->where('trr_type', 'SALE')
             ->where('trs_type', 1)
             ->orderBy('trs_date')
-            ->orderBy('trs_number');
+            ->orderBy('trs_number')
+            ->get();
+
+        $returnHeaders = $this->headers()
+            ->where('trr_type', 'SALE_RET')
+            ->where('trs_type', 1)
+            ->orderBy('trs_date')
+            ->orderBy('trs_number')
+            ->get();
 
         if ($invoiceId !== null) {
-            $query->whereKey($invoiceId);
+            $saleHeaders = $saleHeaders->sortBy(
+                fn (TrHeader $header): int => $header->getKey() === (int) $invoiceId ? 0 : 1,
+            );
         }
 
-        foreach ($query->get() as $header) {
+        $totalSale = (float) $saleHeaders->sum(fn (TrHeader $header): float => (float) $header->remaining_amount);
+        $totalReturn = (float) $returnHeaders->sum(fn (TrHeader $header): float => (float) $header->remaining_amount);
+
+        $net = round($totalSale - $totalReturn, 2);
+
+        if ($net <= 0) {
+            return;
+        }
+
+        // Bagian yang mengurangi penjualan lebih besar dari kas masuk karena
+        // retur kredit ikut menutup tagihan secara proporsional.
+        $salePart = round($remaining * ($totalSale / $net), 2);
+        $returnPart = round($salePart - $remaining, 2);
+
+        if ($salePart > 0) {
+            $this->distribute($saleHeaders, $salePart, $subtract);
+        }
+
+        if ($returnPart > 0) {
+            $this->distribute($returnHeaders, $returnPart, $subtract);
+        }
+    }
+
+    /**
+     * @param  Collection<int, TrHeader>  $headers
+     */
+    private function distribute(Collection $headers, float $amount, bool $subtract): void
+    {
+        $remaining = round($amount, 2);
+
+        foreach ($headers as $header) {
             if ($remaining <= 0) {
                 break;
             }

@@ -12,13 +12,13 @@ Sistem **Point of Sale (POS)** sederhana berbasis web untuk mencatat **pembelian
 - **Transaksi**
   - **Pembelian** (`pembelian`) — dari supplier, stok otomatis bertambah, nomor `PB-XXXXXX`, HPP rata-rata tertimbang diperbarui
   - **Retur Pembelian** (`retur-pembelian`) — barang dikembalikan ke supplier, stok otomatis berkurang, nomor `RPB-XXXXXX`
-  - **Penjualan** (`penjualan`) — ke customer, stok otomatis berkurang (dengan validasi stok), nomor `PJ-XXXXXX`
+  - **Penjualan** (`penjualan`) — ke customer, stok otomatis berkurang (dengan validasi stok), nomor `PJ-XXXXXX`; tiap transaksi bisa dicetak **struk penjualan**
   - **Retur Penjualan** (`retur-penjualan`) — barang kembali dari customer, stok otomatis bertambah, nomor `RPJ-XXXXXX`
   - **Stok Opname** (`opname`) — penyesuaian stok fisik vs sistem, nomor `OP-XXXXXX`
-  - **Angsuran Customer** (`angsuran-customer`) — pembayaran cicilan tagihan kredit (alokasi FIFO), sisa tagihan otomatis diperbarui
+  - **Angsuran Customer** (`angsuran-customer`) — pembayaran cicilan tagihan kredit dengan **alokasi proporsional** (penjualan kredit & retur penjualan kredit dikonsumsi sebanding porsinya), sisa tagihan otomatis diperbarui
 - **Laporan**
   - Laporan Penjualan — ringkasan per barang / per customer
-  - Kartu Stok — mutasi masuk/keluar per barang
+  - Kartu Stok — mutasi masuk/keluar per barang, bisa dicetak atau di-export Excel (CSV)
   - Piutang (Aging) — umur piutang per customer
   - Kartu Piutang — mutasi piutang per customer
   - Nilai Persediaan — nilai stok (`stock × harga_pokok`)
@@ -129,6 +129,9 @@ app/
 │   ├── TrHeader.php, TrDetail.php
 │   └── CustomerPayment.php
 database/migrations/                # Skema database
+resources/views/
+├── struk/penjualan.blade.php       # Struk penjualan (cetak, thermal 80mm)
+└── laporan/kartu-stok.blade.php    # Laporan kartu stok (cetak)
 docs/                               # Dokumentasi pendukung
 tests/                              # Pengujian Pest
 ```

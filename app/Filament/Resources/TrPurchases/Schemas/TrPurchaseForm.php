@@ -128,7 +128,7 @@ class TrPurchaseForm
                             ->numeric()
                             ->required()
                             ->default(1)
-                            ->minValue(0.01)
+                            ->minValue(1)
                             ->extraInputAttributes(['style' => 'text-align: right'])
                             ->live(onBlur: true)
                             ->afterStateUpdated(

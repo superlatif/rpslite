@@ -149,3 +149,102 @@ it('shows the net balance helper text when a customer is selected', function () 
 
     expect($component->get('mountedActions.0.data')['amount'])->toBe(70.0);
 });
+
+it('consumes the return credit proportionally when an installment is paid', function () {
+    $customer = Customer::create(['descr' => 'Customer A']);
+
+    $sale = kreditSale('PJ-000001', '2026-08-01', $customer, 100);
+    $return = kreditReturn('RPJ-000001', '2026-08-05', $customer, 40);
+
+    createPayment([
+        'customer_id' => $customer->id,
+        'payment_date' => '2026-08-10',
+        'amount' => 30,
+    ])->assertHasNoErrors();
+
+    expect($sale->fresh()->remaining_amount)->toBe('50.00')
+        ->and($sale->fresh()->paid_amount)->toBe('50.00')
+        ->and($return->fresh()->remaining_amount)->toBe('20.00')
+        ->and($return->fresh()->paid_amount)->toBe('20.00')
+        ->and($customer->fresh()->netReceivable())->toBe(30.0);
+});
+
+it('settles both invoice and return credit when paying the full net balance', function () {
+    $customer = Customer::create(['descr' => 'Customer A']);
+
+    $sale = kreditSale('PJ-000001', '2026-08-01', $customer, 100);
+    $return = kreditReturn('RPJ-000001', '2026-08-05', $customer, 40);
+
+    createPayment([
+        'customer_id' => $customer->id,
+        'payment_date' => '2026-08-10',
+        'amount' => 60,
+    ])->assertHasNoErrors();
+
+    expect($sale->fresh()->remaining_amount)->toBe('0.00')
+        ->and($sale->fresh()->paid_amount)->toBe('100.00')
+        ->and($return->fresh()->remaining_amount)->toBe('0.00')
+        ->and($return->fresh()->paid_amount)->toBe('40.00')
+        ->and($customer->fresh()->netReceivable())->toBe(0.0);
+});
+
+it('applies a linked installment to the selected invoice while consuming the return credit', function () {
+    $customer = Customer::create(['descr' => 'Customer A']);
+
+    $sale = kreditSale('PJ-000001', '2026-08-01', $customer, 100);
+    $return = kreditReturn('RPJ-000001', '2026-08-05', $customer, 40);
+
+    createPayment([
+        'customer_id' => $customer->id,
+        'tr_header_id' => $sale->id,
+        'payment_date' => '2026-08-10',
+        'amount' => 30,
+    ])->assertHasNoErrors();
+
+    expect($sale->fresh()->remaining_amount)->toBe('50.00')
+        ->and($return->fresh()->remaining_amount)->toBe('20.00');
+});
+
+it('distributes the sale portion across invoices FIFO before consuming the return credit', function () {
+    $customer = Customer::create(['descr' => 'Customer A']);
+
+    $oldest = kreditSale('PJ-000001', '2026-07-01', $customer, 100);
+    $newest = kreditSale('PJ-000002', '2026-08-01', $customer, 50);
+    $return = kreditReturn('RPJ-000001', '2026-08-05', $customer, 40);
+
+    createPayment([
+        'customer_id' => $customer->id,
+        'payment_date' => '2026-08-10',
+        'amount' => 55,
+    ])->assertHasNoErrors();
+
+    expect($oldest->fresh()->remaining_amount)->toBe('25.00')
+        ->and($oldest->fresh()->paid_amount)->toBe('75.00')
+        ->and($newest->fresh()->remaining_amount)->toBe('50.00')
+        ->and($return->fresh()->remaining_amount)->toBe('20.00')
+        ->and($customer->fresh()->netReceivable())->toBe(55.0);
+});
+
+it('restores invoice and return credit when a linked installment is deleted', function () {
+    $customer = Customer::create(['descr' => 'Customer A']);
+
+    $sale = kreditSale('PJ-000001', '2026-08-01', $customer, 100);
+    $return = kreditReturn('RPJ-000001', '2026-08-05', $customer, 40);
+
+    createPayment([
+        'customer_id' => $customer->id,
+        'tr_header_id' => $sale->id,
+        'payment_date' => '2026-08-10',
+        'amount' => 30,
+    ])->assertHasNoErrors();
+
+    $payment = CustomerPayment::firstOrFail();
+    $payment->customer->reversePayment((float) $payment->amount, $payment->tr_header_id);
+    $payment->delete();
+
+    expect($sale->fresh()->remaining_amount)->toBe('100.00')
+        ->and($sale->fresh()->paid_amount)->toBe('0.00')
+        ->and($return->fresh()->remaining_amount)->toBe('40.00')
+        ->and($return->fresh()->paid_amount)->toBe('0.00')
+        ->and($customer->fresh()->netReceivable())->toBe(60.0);
+});

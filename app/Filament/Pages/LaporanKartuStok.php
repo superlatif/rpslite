@@ -74,6 +74,27 @@ class LaporanKartuStok extends Page implements HasTable
                     $this->date_from = $data['date_from'];
                     $this->date_until = $data['date_until'];
                 }),
+
+            Action::make('cetak')
+                ->label('Cetak')
+                ->icon(Heroicon::OutlinedPrinter)
+                ->url(fn (): string => route('filament.admin.laporan-kartu-stok.cetak', [
+                    'stock_id' => $this->stock_id,
+                    'date_from' => $this->date_from,
+                    'date_until' => $this->date_until,
+                ]))
+                ->openUrlInNewTab()
+                ->disabled(fn (): bool => blank($this->stock_id)),
+
+            Action::make('exportExcel')
+                ->label('Export Excel')
+                ->icon(Heroicon::OutlinedArrowDownTray)
+                ->url(fn (): string => route('filament.admin.laporan-kartu-stok.export', [
+                    'stock_id' => $this->stock_id,
+                    'date_from' => $this->date_from,
+                    'date_until' => $this->date_until,
+                ]))
+                ->disabled(fn (): bool => blank($this->stock_id)),
         ];
     }
 

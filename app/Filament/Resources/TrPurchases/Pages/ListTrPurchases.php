@@ -5,6 +5,7 @@ namespace App\Filament\Resources\TrPurchases\Pages;
 use App\Filament\Resources\TrPurchases\TrPurchaseResource;
 use App\Models\TbStock;
 use App\Models\TrHeader;
+use Filament\Actions\Action;
 use Filament\Actions\CreateAction;
 use Filament\Resources\Pages\ListRecords;
 use Illuminate\Database\Eloquent\Model;
@@ -21,37 +22,14 @@ class ListTrPurchases extends ListRecords
                 ->label('Tambah Pembelian')
                 ->modalSubmitActionLabel('Simpan')
                 ->modalCancelActionLabel('Batal')
+                ->createAnother(true)
+                ->createAnotherAction(
+                    fn (Action $action) => $action->label('Simpan & Tambah Lagi')
+                )
                 ->databaseTransaction()
                 ->using(fn (array $data): Model => $this->createPurchase($data)),
         ];
     }
-
-    // protected function createPurchase(array $data): Model
-    // {
-    //     $details = $this->prepareDetails($data['details'] ?? []);
-    //     $total = array_sum(array_column($details, 'subtotal'));
-    //     $isKredit = (int) ($data['trs_type'] ?? 0) === 1;
-
-    //     $header = TrHeader::create([
-    //         'trs_number' => $this->generateNumber('PB'),
-    //         'trs_date' => $data['trs_date'],
-    //         'trr_type' => 'PURCHASE',
-    //         'supplier_id' => $data['supplier_id'],
-    //         'total_amount' => $total,
-    //         'trs_type' => $isKredit ? 1 : 0,
-    //         'paid_amount' => $isKredit ? 0 : $total,
-    //         'remaining_amount' => $isKredit ? $total : 0,
-    //     ]);
-
-    //     $header->details()->createMany($details);
-
-    //     foreach ($details as $row) {
-    //         TbStock::query()->whereKey($row['stock_id'])->increment('stock', (float) $row['qty']);
-    //         TbStock::find($row['stock_id'])?->recalculateHpp();
-    //     }
-
-    //     return $header;
-    // }
 
     protected function createPurchase(array $data): Model
     {
@@ -100,31 +78,12 @@ class ListTrPurchases extends ListRecords
                     'stock',
                     (float) $row['qty']
                 );
-
                 $stock->recalculateHpp();
             }
 
             return $header;
         });
     }
-    /**
-     * @param  array<int, array<string, mixed>>  $rows
-     * @return array<int, array<string, mixed>>
-     */
-    // protected function prepareDetails(array $rows): array
-    // {
-    //     return array_map(function (array $row): array {
-    //         $stock = TbStock::find($row['stock_id']);
-
-    //         return [
-    //             'stock_id' => $row['stock_id'],
-    //             'qty' => $row['qty'],
-    //             'unit_price' => $row['unit_price'],
-    //             'hpp_at_transaction' => (float) ($stock?->harga_pokok ?? 0),
-    //             'subtotal' => (float) $row['qty'] * (float) $row['unit_price'],
-    //         ];
-    //     }, $rows);
-    // }
 
     protected function prepareDetails(array $details): array
     {

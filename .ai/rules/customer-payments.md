@@ -10,3 +10,6 @@ CustomerPaymentResource menyimpan ke tabel customer_payments. Saat create (Creat
 
 ## Installments are net of sales returns
 A credit SALE_RET header stores remaining_amount = total and acts as a customer credit that reduces piutang. Customer::netReceivable() = sum(SALE remaining) - sum(SALE_RET remaining) is the hard cap for any payment; never allow paying beyond it or the Piutang report goes negative. Use Customer::applyPayment()/reversePayment() to allocate payments FIFO across open credit SALE headers (linked payment -> single invoice; unlinked -> oldest first).
+
+## Retur penjualan kredit ikut dikonsumsi angsuran
+Angsuran kini tidak hanya mengurangi SALE. Setiap pembayaran mengonsumsi sisa SALE dan sisa SALE_RET (retur penjualan kredit) secara proporsional via Customer::applyPayment(), sehingga retur kredit tidak tampak terbuka selamanya setelah customer lunas. Dropdown invoice tetap hanya SALE; batas bayar tetap netReceivable() dan sisa invoice yang dipilih.

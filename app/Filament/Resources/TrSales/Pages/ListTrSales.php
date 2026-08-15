@@ -5,6 +5,7 @@ namespace App\Filament\Resources\TrSales\Pages;
 use App\Filament\Resources\TrSales\TrSaleResource;
 use App\Models\TbStock;
 use App\Models\TrHeader;
+use Filament\Actions\Action;
 use Filament\Actions\CreateAction;
 use Filament\Resources\Pages\ListRecords;
 use Illuminate\Database\Eloquent\Model;
@@ -22,6 +23,10 @@ class ListTrSales extends ListRecords
                 ->label('Tambah Penjualan')
                 ->modalSubmitActionLabel('Simpan')
                 ->modalCancelActionLabel('Batal')
+                ->createAnother(true)
+                ->createAnotherAction(
+                    fn (Action $action) => $action->label('Simpan & Tambah Lagi')
+                )
                 ->databaseTransaction()
                 ->using(fn (array $data): Model => $this->createSale($data)),
         ];

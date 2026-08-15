@@ -2,9 +2,14 @@
 
 namespace App\Filament\Resources\TrSales\Tables;
 
+use App\Models\TrHeader;
 use Carbon\Carbon;
+use Filament\Actions\Action;
+use Filament\Actions\ActionGroup;
 use Filament\Forms\Components\DatePicker;
+use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Enums\RecordActionsPosition;
 use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
@@ -102,6 +107,16 @@ class TrSalesTable
                         return implode(' - ', $indicators);
                     }),
             ])->persistFiltersInSession()
+
+            ->recordActions([
+                ActionGroup::make([
+                    Action::make('cetakStruk')
+                        ->label('Cetak Struk')
+                        ->icon(Heroicon::OutlinedPrinter)
+                        ->url(fn (TrHeader $record): string => route('filament.admin.penjualan.struk', $record))
+                        ->openUrlInNewTab(),
+                ]),
+            ], position: RecordActionsPosition::BeforeColumns)
 
             ->toolbarActions([
                 //

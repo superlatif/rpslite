@@ -114,3 +114,88 @@ it('renders the stock card when a report is generated', function () {
         ->assertSee('Stok Akhir')
         ->assertSee('Pembelian');
 });
+
+it('registers cetak and export excel header actions with the report URL', function () {
+    $stock = TbStock::factory()->create();
+
+    Livewire::test(LaporanKartuStok::class)
+        ->set('stock_id', (string) $stock->id)
+        ->set('date_from', '2026-07-01')
+        ->set('date_until', '2026-07-31')
+        ->assertActionHasUrl('cetak', route('filament.admin.laporan-kartu-stok.cetak', [
+            'stock_id' => (string) $stock->id,
+            'date_from' => '2026-07-01',
+            'date_until' => '2026-07-31',
+        ]))
+        ->assertActionHasUrl('exportExcel', route('filament.admin.laporan-kartu-stok.export', [
+            'stock_id' => (string) $stock->id,
+            'date_from' => '2026-07-01',
+            'date_until' => '2026-07-31',
+        ]));
+});
+
+it('prints the stock card report from the cetak route', function () {
+    $stock = TbStock::factory()->create(['code' => 'BRG-001', 'descr' => 'Bollpoin']);
+
+    $header = TrHeader::factory()->create([
+        'trs_number' => 'PB-000001',
+        'trs_date' => '2026-07-05',
+        'trr_type' => 'PURCHASE',
+    ]);
+
+    TrDetail::factory()->create([
+        'tr_header_id' => $header->id,
+        'stock_id' => $stock->id,
+        'qty' => 5,
+    ]);
+
+    $this->get(route('filament.admin.laporan-kartu-stok.cetak', [
+        'stock_id' => $stock->id,
+        'date_from' => '2026-07-01',
+        'date_until' => '2026-07-31',
+    ]))
+        ->assertOk()
+        ->assertSee('LAPORAN KARTU STOK')
+        ->assertSee('Bollpoin')
+        ->assertSee('PB-000001')
+        ->assertSee('Stok Akhir');
+});
+
+it('exports the stock card report as a CSV with BOM', function () {
+    $stock = TbStock::factory()->create(['code' => 'BRG-001', 'descr' => 'Bollpoin']);
+
+    $header = TrHeader::factory()->create([
+        'trs_number' => 'PB-000001',
+        'trs_date' => '2026-07-05',
+        'trr_type' => 'PURCHASE',
+    ]);
+
+    TrDetail::factory()->create([
+        'tr_header_id' => $header->id,
+        'stock_id' => $stock->id,
+        'qty' => 5,
+    ]);
+
+    $response = $this->get(route('filament.admin.laporan-kartu-stok.export', [
+        'stock_id' => $stock->id,
+        'date_from' => '2026-07-01',
+        'date_until' => '2026-07-31',
+    ]));
+
+    $response->assertOk();
+
+    $content = $response->streamedContent();
+
+    expect($content)->toStartWith("\xEF\xBB\xBF")
+        ->and($content)->toContain('No. Transaksi')
+        ->and($content)->toContain('PB-000001')
+        ->and($content)->toContain('Stok Akhir');
+});
+
+it('rejects cetak and export when parameters are missing', function () {
+    $this->get(route('filament.admin.laporan-kartu-stok.cetak'))
+        ->assertNotFound();
+
+    $this->get(route('filament.admin.laporan-kartu-stok.export'))
+        ->assertNotFound();
+});

@@ -31,7 +31,7 @@ class LaporanPiutang extends Page implements HasTable
 
     protected static string|UnitEnum|null $navigationGroup = 'Laporan';
 
-    protected static ?int $navigationSort = 4;
+    protected static ?int $navigationSort = 11;
 
     protected static ?string $slug = 'laporan-piutang';
 

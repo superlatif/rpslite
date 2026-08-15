@@ -47,6 +47,8 @@ Barang dikembalikan ke supplier (kebalikan dari pembelian).
   3. **Stok berkurang** (`tb_stocks.stock -= qty`).
   4. Semua dalam satu transaksi database.
 
+> **Cetak Struk**: setiap baris penjualan di tabel Penjualan memiliki action **"Cetak Struk"** (di kiri baris, dalam action group) yang membuka struk di tab baru. Struk menampilkan "Yth" customer (nama/alamat/telp), tanggal, jenis pembayaran (TUNAI/KREDIT), **sisa piutang** bila masih kredit, rincian barang, dan total. Route `filament.admin.penjualan.struk` (`GET /penjualan/{trHeader}/struk`) hanya berlaku untuk header `SALE` (selain itu 404) dan memakai view `resources/views/struk/penjualan.blade.php` (auto-print saat dibuka).
+
 ## 4. Retur Penjualan
 
 Barang kembali dari customer (kebalikan dari penjualan).
@@ -55,7 +57,7 @@ Barang kembali dari customer (kebalikan dari penjualan).
 - **Saat simpan**:
   1. **Stok bertambah** (`tb_stocks.stock += qty`).
   2. `hpp_at_transaction` disnapshot dari `harga_pokok` saat transaksi.
-  3. **Retur kredit mengurangi piutang customer**: `SALE_RET` kredit mencatat `remaining_amount = total` dan berlaku sebagai kredit yang mengurangi sisa tagihan customer (lihat `Customer::netReceivable()`).
+  3. **Retur kredit mengurangi piutang customer**: `SALE_RET` kredit mencatat `remaining_amount = total` dan berlaku sebagai kredit yang mengurangi sisa tagihan customer (lihat `Customer::netReceivable()`); saat angsuran dibayar, retur ini **ikut dikonsumsi secara proporsional**.
 
 ## 5. Stok Opname
 
@@ -71,16 +73,16 @@ Penyesuaian stok untuk mencocokkan stok sistem dengan hasil hitungan fisik.
 
 ## 6. Angsuran Customer
 
-- Resource ini mencatat pembayaran cicilan atas **penjualan kredit** yang belum lunas.
+- Resource ini mencatat pembayaran cicilan atas **piutang bersih** customer (`netReceivable` = penjualan kredit dikurangi retur penjualan kredit).
 - **Form**: customer (wajib), pilih invoice kredit (`SALE` dengan `remaining_amount > 0`), tanggal bayar, jumlah.
   - Dropdown invoice menampilkan sisa tagihan dan otomatis mengisi kolom jumlah.
   - Batas maksimal pembayaran adalah **sisa tagihan bersih** `Customer::netReceivable()` = `Σ SALE kredit − Σ SALE_RET kredit`.
 - **Saat simpan** (`ListCustomerPayments::createPayment`):
   1. Validasi `amount ≤ netReceivable` dan (bila invoice dipilih) `amount ≤ remaining_amount` invoice tersebut.
   2. Simpan ke `customer_payments`.
-  3. Alokasikan ke header lewat `Customer::applyPayment()` — **FIFO** (invoice paling lama lebih dulu) jika tidak menautkan ke invoice tertentu; jika menautkan, hanya invoice itu yang diperbarui.
+  3. Alokasikan lewat `Customer::applyPayment()` — **proporsional**: pembayaran mengonsumsi sisa penjualan kredit (`SALE`) **dan** retur penjualan kredit (`SALE_RET`) sebanding porsinya terhadap sisa bersih. Bagian penjualan dialokasikan **FIFO** (invoice terlama lebih dulu); bila menautkan ke invoice tertentu, invoice itu didahulukan dan kelebihannya mengalir ke invoice lain. Bagian retur dialokasikan FIFO ke transaksi `SALE_RET`.
 - **Saat menghapus** angsuran (action "Hapus" di tabel):
-  1. Balikkan alokasi lewat `Customer::reversePayment()` (`paid_amount -= amount`, `remaining_amount += amount`).
+  1. Balikkan alokasi lewat `Customer::reversePayment()` (mengembalikan sisa `SALE` & `SALE_RET` sesuai proporsi semula).
   2. Baru hapus record.
 
 ## Ringkasan State Keuangan
@@ -102,5 +104,6 @@ Penyesuaian stok untuk mencocokkan stok sistem dengan hasil hitungan fisik.
 | Simpan penjualan + validasi + update stok | `app/Filament/Resources/TrSales/Pages/ListTrSales.php` |
 | Simpan retur penjualan + update stok | `app/Filament/Resources/TrSaleReturns/Pages/ListTrSaleReturns.php` |
 | Simpan opname + set stok fisik | `app/Filament/Resources/TrOpnames/Pages/ListTrOpnames.php` |
-| Simpan & hapus angsuran + alokasi FIFO | `app/Filament/Resources/CustomerPayments/Pages/ListCustomerPayments.php`, `app/Filament/Resources/CustomerPayments/Tables/CustomerPaymentsTable.php`, `app/Models/Customer.php` |
+| Simpan & hapus angsuran + alokasi proporsional (SALE & SALE_RET) | `app/Filament/Resources/CustomerPayments/Pages/ListCustomerPayments.php`, `app/Filament/Resources/CustomerPayments/Tables/CustomerPaymentsTable.php`, `app/Models/Customer.php` |
+| Cetak struk penjualan | `app/Filament/Resources/TrSales/Tables/TrSalesTable.php`, `app/Providers/Filament/AdminPanelProvider.php` (route `penjualan.struk`), `resources/views/struk/penjualan.blade.php` |
 | Filter resource per tipe | `app/Filament/Resources/TrPurchases/TrPurchaseResource.php`, `app/Filament/Resources/TrPurchaseReturns/TrPurchaseReturnResource.php`, `app/Filament/Resources/TrSales/TrSaleResource.php`, `app/Filament/Resources/TrSaleReturns/TrSaleReturnResource.php`, `app/Filament/Resources/TrOpnames/TrOpnameResource.php` (`getEloquentQuery`) |

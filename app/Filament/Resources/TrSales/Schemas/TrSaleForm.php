@@ -32,7 +32,7 @@ class TrSaleForm
                             ->relationship('customer', 'descr')
                             ->searchable()
                             ->preload()
-                             ->createOptionForm(fn (): array => TbCustomerForm::components())
+                            ->createOptionForm(fn (): array => TbCustomerForm::components())
                             ->createOptionUsing(fn (array $data) => Customer::create($data)->getKey())
                             ->live()
                             ->afterStateUpdated(function ($state, callable $set) {
@@ -124,7 +124,7 @@ class TrSaleForm
                             ->numeric()
                             ->required()
                             ->default(1)
-                            ->minValue(0.01)
+                            ->minValue(1)
                             ->extraInputAttributes(['style' => 'text-align: right'])
                             ->live(onBlur: true)
                             ->afterStateUpdated(
