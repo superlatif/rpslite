@@ -1,0 +1,16 @@
+setelah git clone, untuk aplikasi laravel
+composer install
+sesuaikan isi .env
+php artisan key:generate
+php artisan migrate
+php artisan db:seed --class=UserRoleSeeder
+(kalau ada seeder)
+atau jika ada data awal : php artisan migrate --seed
+npm install
+npm run build  / dev
+
+php artisan storage:link
+php artisan config:clear
+php artisan cache:clear
+php artisan view:clear
+php artisan cache:clear

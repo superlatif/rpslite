@@ -1,0 +1,28 @@
+Widget Dashboard (app/Filament/Widgets)
+Ringkasan Penjualan
+- Stat: Penjualan hari ini & bulan ini (jumlah transaksi + nominal)
+- Stat: Perbandingan Tunai vs Kredit
+- Chart (line): Tren penjualan 30 hari terakhir
+- Stat: Laba kotor bulan ini — sum((unit_price - hpp_at_transaction) * qty) dari tr_details join header SALE (snapshot HPP sudah tersedia, tinggal dipakai)
+Piutang & Angsuran
+- Stat: Total piutang (SUM(remaining_amount) header SALE kredit)
+- Table: Top piutang per customer (sisa tagihan terbesar)
+- Stat: Angsuran masuk bulan ini (customer_payments)
+Stok
+- Stat: Total item + total qty
+- Stat: Nilai stok (SUM(stock * harga_pokok))
+- Table: Stok menipis (mis. stock <= 5) & stok habis — paling informatif untuk POS agar re-stock tidak telat
+- Chart (bar): Nilai stok per kategori
+Pembelian
+- Stat: Total pembelian bulan ini + utang ke supplier (jika ada)
+Laporan (custom Pages app/Filament/Pages)
+Laporan	Isi utama
+Penjualan	per periode, per customer, per barang (qty & omzet)
+Pembelian	per periode, per supplier
+Stok	kartu stok/mutasi masuk-keluar, stok menipis, nilai stok per kategori
+Piutang (Aging)	sisa tagihan per customer + riwayat angsuran
+Laba/Rugi	omzet, HPP, laba kotor per periode/barang
+Angsuran	penerimaan angsuran per periode per customer
+Semua laporan idealnya punya filter periode (tanggal) + export Excel/PDF (Filament 5 sudah punya ExportAction/tabel + header actions).
+Prioritas tertinggi mengingat data & kebutuhan POS: Piutang (karena ada angsuran kredit) dan Stok menipis/habis — dua ini paling butuh 
+perhatian harian. Mau saya buatkan widget-widget dashboard atau laporannya (misal mulai dari dashboard widget)?
