@@ -1,11 +1,14 @@
 <?php
 
-namespace App\Filament\Resources\TrSales\Tables;
+namespace App\Filament\Resources\LaporanPembelians\Tables;
 
 use App\Models\TrHeader;
 use Carbon\Carbon;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
+use Filament\Actions\BulkActionGroup;
+use Filament\Actions\DeleteBulkAction;
+use Filament\Actions\EditAction;
 use Filament\Forms\Components\DatePicker;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
@@ -15,57 +18,57 @@ use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 
-class TrSalesTable
+class LaporanPembeliansTable
 {
     public static function configure(Table $table): Table
     {
         return $table
             ->columns([
                 TextColumn::make('trs_number')
-                    ->label('No. Transaksi')
-                    ->searchable()
-                    ->sortable(),
-                TextColumn::make('trs_date')
-                    ->label('Tanggal')
-                    ->date('d M Y')
-                    ->sortable(),
-                TextColumn::make('customer.descr')
-                    ->label('Customer'),
-                TextColumn::make('total_amount')
-                    ->label('Total')
-                    ->numeric(2, '.', ',')
-                    ->alignEnd(),
-                TextColumn::make('trs_type')
-                    ->label('Jenis')
-                    ->badge()
-                    ->formatStateUsing(fn (mixed $state): string => (int) $state === 1 ? 'Kredit' : 'Tunai')
-                    ->color(fn (mixed $state): string => (int) $state === 1 ? 'warning' : 'success'),
-                TextColumn::make('paid_amount')
-                    ->label('Dibayar')
-                    ->numeric(2, '.', ',')
-                    ->alignEnd(),
-                TextColumn::make('remaining_amount')
-                    ->label('Sisa')
-                    ->numeric(2, '.', ',')
-                    ->alignEnd()
-                    ->color(fn (mixed $state): string => (float) $state > 0 ? 'danger' : 'success'),
+                ->label('No. Transaksi')
+                ->searchable(),
+
+            TextColumn::make('trs_date')
+                ->label('Tanggal')
+                ->date(),
+
+            TextColumn::make('jenis_bayar')
+                ->label('Jenis Bayar'),
+
+            TextColumn::make('debet')
+                ->label('Pembelian')
+                ->alignEnd()
+                ->numeric()
+                ->money('IDR'), // opsional: format rupiah
+
+            TextColumn::make('kredit')
+                ->label('Retur')
+                ->alignEnd()
+                ->numeric()
+                ->money('IDR'),
+
+            TextColumn::make('supplier.descr')
+                ->label('Supplier'),
             ])
-            ->defaultSort('trs_number', 'desc')
             ->filters([
-                SelectFilter::make('trs_type')
-                    ->label('Jenis')
-                    ->options([
-                        0 => 'Tunai',
-                        1 => 'Kredit',
-                    ]),
-                SelectFilter::make('customer_id')
-                    ->label('Customer')
-                    ->relationship('customer', 'descr')
+               SelectFilter::make('trs_type')
+                ->label('Jenis')
+                ->options([
+                    '0' => 'Tunai',
+                    '1' => 'Kredit',
+                ])
+                ->query(function (Builder $query, array $data): Builder {
+                    return $query->when(
+                        $data['value'] !== null && $data['value'] !== '',
+                        fn (Builder $query) => $query->where('trs_type', (int) $data['value'])
+                    );
+                }),
+                SelectFilter::make('supplier_id')
+                    ->label('Supplier')
+                    ->relationship('supplier', 'descr')
                     ->searchable()
                     ->preload(),
                 Filter::make('trs_date')
-                    // ->label('Tanggal Transaksi')
-                    // ->indicator('test')
                     ->schema([
                         DatePicker::make('date_from')
                             ->label('Transaksi mulai dari')
@@ -94,7 +97,6 @@ class TrSalesTable
                         }
 
                         $indicators = [];
-
                         if (filled($data['date_from'])) {
                             $indicators[] = 'Mulai: '.Carbon::parse($data['date_from'])->format('d M Y');
                         }
@@ -107,24 +109,19 @@ class TrSalesTable
                         return implode(' - ', $indicators);
                     }),
             ])->persistFiltersInSession()
-
             ->recordActions([
                 ActionGroup::make([
-                    Action::make('laporanPenjualan')
-                        ->label('Detail Penjualan')
+                    Action::make('laporanPembelian')
+                        ->label('Detail Pembelian')
                         ->icon(Heroicon::OutlinedDocumentText)
-                        ->url(fn (TrHeader $record): string => route('filament.admin.penjualan.laporan', $record))
-                        ->openUrlInNewTab(),
-                    Action::make('cetakStruk')
-                        ->label('Cetak Struk')
-                        ->icon(Heroicon::OutlinedPrinter)
-                        ->url(fn (TrHeader $record): string => route('filament.admin.penjualan.struk', $record))
+                        ->url(fn (TrHeader $record): string => route('filament.admin.pembelian.laporan', $record))
                         ->openUrlInNewTab(),
                 ]),
             ], position: RecordActionsPosition::BeforeColumns)
-
             ->toolbarActions([
-                //
+                BulkActionGroup::make([
+                    DeleteBulkAction::make(),
+                ]),
             ]);
     }
 }

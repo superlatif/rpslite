@@ -3,6 +3,8 @@
 namespace App\Providers\Filament;
 
 use App\Filament\Pages\Tables\LaporanKartuStokTable;
+use App\Filament\Pages\Tables\LaporanNilaiPersediaanTable;
+use App\Filament\Pages\Tables\LaporanPenjualanTable;
 use App\Models\TbStock;
 use App\Models\TrHeader;
 use Carbon\Carbon;
@@ -130,6 +132,450 @@ class AdminPanelProvider extends PanelProvider
                         'Content-Type' => 'text/csv; charset=UTF-8',
                     ]);
                 })->name('laporan-kartu-stok.export');
+
+                Route::get('/laporan-nilai-persediaan/cetak', function (Request $request) {
+                    $rows = LaporanNilaiPersediaanTable::buildRows(
+                        (string) $request->query('cate_id', ''),
+                        $request->query('only_available'),
+                    );
+
+                    return view('laporan.nilai-persediaan', ['rows' => $rows]);
+                })->name('laporan-nilai-persediaan.cetak');
+
+                Route::get('/laporan-nilai-persediaan/export', function (Request $request) {
+                    $rows = LaporanNilaiPersediaanTable::buildRows(
+                        (string) $request->query('cate_id', ''),
+                        $request->query('only_available'),
+                    );
+
+                    $filename = 'laporan-nilai-persediaan-'.now()->format('Ymd-His').'.csv';
+
+                    $callback = function () use ($rows): void {
+                        $handle = fopen('php://output', 'w');
+
+                        fwrite($handle, "\xEF\xBB\xBF");
+
+                        fputcsv($handle, ['Kode', 'Nama Barang', 'Satuan', 'Stok', 'Harga Pokok', 'Nilai Persediaan', 'Kategori']);
+
+                        $totalStok = 0.0;
+                        $totalNilai = 0.0;
+
+                        foreach ($rows as $row) {
+                            $totalStok += (float) $row['stock'];
+                            $totalNilai += (float) $row['nilai_persediaan'];
+
+                            fputcsv($handle, [
+                                $row['code'],
+                                $row['descr'],
+                                $row['satuan'],
+                                (string) $row['stock'],
+                                number_format((float) $row['harga_pokok'], 2, ',', '.'),
+                                number_format((float) $row['nilai_persediaan'], 2, ',', '.'),
+                                $row['kategori'],
+                            ]);
+                        }
+
+                        fputcsv($handle, []);
+                        fputcsv($handle, [
+                            'TOTAL',
+                            '',
+                            '',
+                            number_format($totalStok, 0, ',', '.'),
+                            '',
+                            number_format($totalNilai, 2, ',', '.'),
+                            '',
+                        ]);
+
+                        fclose($handle);
+                    };
+
+                    return response()->streamDownload($callback, $filename, [
+                        'Content-Type' => 'text/csv; charset=UTF-8',
+                    ]);
+                })->name('laporan-nilai-persediaan.export');
+
+                Route::get('/laporan-penjualan/cetak', function (Request $request) {
+                    $dateFrom = (string) $request->query('date_from', '');
+                    $dateUntil = (string) $request->query('date_until', '');
+
+                    abort_if(blank($dateFrom) || blank($dateUntil), 404);
+
+                    $rows = LaporanPenjualanTable::buildRows(
+                        $dateFrom,
+                        $dateUntil,
+                        (string) $request->query('customer_id', ''),
+                        (string) $request->query('group_by', 'barang'),
+                    );
+
+                    return view('laporan.penjualan-ringkas', [
+                        'dateFrom' => $dateFrom,
+                        'dateUntil' => $dateUntil,
+                        'groupBy' => (string) $request->query('group_by', 'barang'),
+                        'rows' => $rows,
+                    ]);
+                })->name('laporan-penjualan.cetak');
+
+                Route::get('/laporan-penjualan/export', function (Request $request) {
+                    $dateFrom = (string) $request->query('date_from', '');
+                    $dateUntil = (string) $request->query('date_until', '');
+
+                    abort_if(blank($dateFrom) || blank($dateUntil), 404);
+
+                    $rows = LaporanPenjualanTable::buildRows(
+                        $dateFrom,
+                        $dateUntil,
+                        (string) $request->query('customer_id', ''),
+                        (string) $request->query('group_by', 'barang'),
+                    );
+
+                    $filename = 'laporan-penjualan-'.$dateFrom.'-'.$dateUntil.'.csv';
+
+                    $callback = function () use ($rows): void {
+                        $handle = fopen('php://output', 'w');
+
+                        fwrite($handle, "\xEF\xBB\xBF");
+
+                        fputcsv($handle, ['Kode', 'Nama Barang / Customer', 'Qty', 'Omzet', 'HPP', 'Laba']);
+
+                        foreach ($rows as $row) {
+                            fputcsv($handle, [
+                                (string) ($row['kode'] ?? ''),
+                                (string) ($row['nama'] ?? ''),
+                                (string) $row['qty'],
+                                number_format((float) $row['omzet'], 2, ',', '.'),
+                                number_format((float) $row['hpp'], 2, ',', '.'),
+                                number_format((float) $row['laba'], 2, ',', '.'),
+                            ]);
+                        }
+
+                        fclose($handle);
+                    };
+
+                    return response()->streamDownload($callback, $filename, [
+                        'Content-Type' => 'text/csv; charset=UTF-8',
+                    ]);
+                })->name('laporan-penjualan.export');
+
+                Route::get('/pembelian/{trHeader}/laporan', function (TrHeader $trHeader) {
+                    abort_unless($trHeader->trr_type === 'PURCHASE', 404);
+
+                    $trHeader->load('supplier', 'details.stock');
+
+                    return view('laporan.pembelian', ['header' => $trHeader, 'autoPrint' => false]);
+                })->name('pembelian.laporan');
+
+                Route::get('/pembelian/{trHeader}/cetak', function (TrHeader $trHeader) {
+                    abort_unless($trHeader->trr_type === 'PURCHASE', 404);
+
+                    $trHeader->load('supplier', 'details.stock');
+
+                    return view('laporan.pembelian', ['header' => $trHeader, 'autoPrint' => true]);
+                })->name('pembelian.cetak');
+
+                Route::get('/pembelian/{trHeader}/export', function (TrHeader $trHeader) {
+                    abort_unless($trHeader->trr_type === 'PURCHASE', 404);
+
+                    $trHeader->load('supplier', 'details.stock');
+
+                    $filename = 'pembelian-'.$trHeader->trs_number.'.csv';
+
+                    $callback = function () use ($trHeader): void {
+                        $handle = fopen('php://output', 'w');
+
+                        fwrite($handle, "\xEF\xBB\xBF");
+
+                        fputcsv($handle, ['LAPORAN PEMBELIAN']);
+                        fputcsv($handle, ['No. Transaksi', 'Tanggal', 'Jenis', 'Supplier', 'Alamat', 'Phone']);
+                        fputcsv($handle, [
+                            $trHeader->trs_number,
+                            $trHeader->trs_date->format('d M Y'),
+                            (int) $trHeader->trs_type === 1 ? 'Kredit' : 'Tunai',
+                            $trHeader->supplier?->descr ?? '',
+                            $trHeader->supplier?->alamat ?? '',
+                            $trHeader->supplier?->phone ?? '',
+                        ]);
+                        fputcsv($handle, []);
+                        fputcsv($handle, ['Kode', 'Nama Barang', 'Satuan', 'Qty', 'Harga', 'Subtotal']);
+
+                        $totalSubtotal = 0.0;
+
+                        foreach ($trHeader->details as $item) {
+                            $totalSubtotal += (float) $item->subtotal;
+
+                            fputcsv($handle, [
+                                $item->stock?->code ?? '',
+                                $item->stock?->descr ?? '',
+                                $item->stock?->satuan ?? '',
+                                number_format((float) $item->qty, 2, ',', '.'),
+                                number_format((float) $item->unit_price, 2, ',', '.'),
+                                number_format((float) $item->subtotal, 2, ',', '.'),
+                            ]);
+                        }
+
+                        fputcsv($handle, []);
+                        fputcsv($handle, [
+                            'TOTAL',
+                            '',
+                            '',
+                            '',
+                            '',
+                            number_format($totalSubtotal, 2, ',', '.'),
+                        ]);
+
+                        fclose($handle);
+                    };
+
+                    return response()->streamDownload($callback, $filename, [
+                        'Content-Type' => 'text/csv; charset=UTF-8',
+                    ]);
+                })->name('pembelian.export');
+
+                Route::get('/penjualan/{trHeader}/laporan', function (TrHeader $trHeader) {
+                    abort_unless($trHeader->trr_type === 'SALE', 404);
+
+                    $trHeader->load('customer', 'details.stock');
+
+                    return view('laporan.penjualan', ['header' => $trHeader, 'autoPrint' => false]);
+                })->name('penjualan.laporan');
+
+                Route::get('/penjualan/{trHeader}/cetak', function (TrHeader $trHeader) {
+                    abort_unless($trHeader->trr_type === 'SALE', 404);
+
+                    $trHeader->load('customer', 'details.stock');
+
+                    return view('laporan.penjualan', ['header' => $trHeader, 'autoPrint' => true]);
+                })->name('penjualan.cetak');
+
+                Route::get('/penjualan/{trHeader}/export', function (TrHeader $trHeader) {
+                    abort_unless($trHeader->trr_type === 'SALE', 404);
+
+                    $trHeader->load('customer', 'details.stock');
+
+                    $filename = 'penjualan-'.$trHeader->trs_number.'.csv';
+
+                    $callback = function () use ($trHeader): void {
+                        $handle = fopen('php://output', 'w');
+
+                        fwrite($handle, "\xEF\xBB\xBF");
+
+                        fputcsv($handle, ['LAPORAN PENJUALAN']);
+                        fputcsv($handle, ['No. Transaksi', 'Tanggal', 'Jenis', 'Customer', 'Alamat', 'Phone']);
+                        fputcsv($handle, [
+                            $trHeader->trs_number,
+                            $trHeader->trs_date->format('d M Y'),
+                            (int) $trHeader->trs_type === 1 ? 'Kredit' : 'Tunai',
+                            $trHeader->customer?->descr ?? '',
+                            $trHeader->customer?->alamat ?? '',
+                            $trHeader->customer?->phone ?? '',
+                        ]);
+                        fputcsv($handle, []);
+                        fputcsv($handle, ['Kode', 'Nama Barang', 'Satuan', 'Qty', 'Harga', 'Subtotal', 'HPP', 'Laba']);
+
+                        $totalSubtotal = 0.0;
+                        $totalHpp = 0.0;
+                        $totalLaba = 0.0;
+
+                        foreach ($trHeader->details as $item) {
+                            $hpp = (float) $item->qty * (float) $item->hpp_at_transaction;
+                            $laba = (float) $item->subtotal - $hpp;
+
+                            $totalSubtotal += (float) $item->subtotal;
+                            $totalHpp += $hpp;
+                            $totalLaba += $laba;
+
+                            fputcsv($handle, [
+                                $item->stock?->code ?? '',
+                                $item->stock?->descr ?? '',
+                                $item->stock?->satuan ?? '',
+                                number_format((float) $item->qty, 2, ',', '.'),
+                                number_format((float) $item->unit_price, 2, ',', '.'),
+                                number_format((float) $item->subtotal, 2, ',', '.'),
+                                number_format($hpp, 2, ',', '.'),
+                                number_format($laba, 2, ',', '.'),
+                            ]);
+                        }
+
+                        fputcsv($handle, []);
+                        fputcsv($handle, [
+                            'TOTAL',
+                            '',
+                            '',
+                            '',
+                            '',
+                            number_format($totalSubtotal, 2, ',', '.'),
+                            number_format($totalHpp, 2, ',', '.'),
+                            number_format($totalLaba, 2, ',', '.'),
+                        ]);
+
+                        fclose($handle);
+                    };
+
+                    return response()->streamDownload($callback, $filename, [
+                        'Content-Type' => 'text/csv; charset=UTF-8',
+                    ]);
+                })->name('penjualan.export');
+
+                Route::get('/retur-penjualan/{trHeader}/laporan', function (TrHeader $trHeader) {
+                    abort_unless($trHeader->trr_type === 'SALE_RET', 404);
+
+                    $trHeader->load('customer', 'sourceSale', 'details.stock');
+
+                    return view('laporan.retur-penjualan', ['header' => $trHeader, 'autoPrint' => false]);
+                })->name('retur-penjualan.laporan');
+
+                Route::get('/retur-penjualan/{trHeader}/cetak', function (TrHeader $trHeader) {
+                    abort_unless($trHeader->trr_type === 'SALE_RET', 404);
+
+                    $trHeader->load('customer', 'sourceSale', 'details.stock');
+
+                    return view('laporan.retur-penjualan', ['header' => $trHeader, 'autoPrint' => true]);
+                })->name('retur-penjualan.cetak');
+
+                Route::get('/retur-penjualan/{trHeader}/export', function (TrHeader $trHeader) {
+                    abort_unless($trHeader->trr_type === 'SALE_RET', 404);
+
+                    $trHeader->load('customer', 'sourceSale', 'details.stock');
+
+                    $filename = 'retur-penjualan-'.$trHeader->trs_number.'.csv';
+
+                    $callback = function () use ($trHeader): void {
+                        $handle = fopen('php://output', 'w');
+
+                        fwrite($handle, "\xEF\xBB\xBF");
+
+                        fputcsv($handle, ['LAPORAN RETUR PENJUALAN']);
+                        fputcsv($handle, ['No. Transaksi', 'Tanggal', 'Jenis', 'No. Faktur Jual', 'Customer', 'Alamat', 'Phone']);
+                        fputcsv($handle, [
+                            $trHeader->trs_number,
+                            $trHeader->trs_date->format('d M Y'),
+                            (int) $trHeader->trs_type === 1 ? 'Kredit' : 'Tunai',
+                            $trHeader->sourceSale?->trs_number ?? '',
+                            $trHeader->customer?->descr ?? '',
+                            $trHeader->customer?->alamat ?? '',
+                            $trHeader->customer?->phone ?? '',
+                        ]);
+                        fputcsv($handle, []);
+                        fputcsv($handle, ['Kode', 'Nama Barang', 'Satuan', 'Qty', 'Harga', 'Subtotal', 'HPP', 'Laba']);
+
+                        $totalSubtotal = 0.0;
+                        $totalHpp = 0.0;
+                        $totalLaba = 0.0;
+
+                        foreach ($trHeader->details as $item) {
+                            $hpp = (float) $item->qty * (float) $item->hpp_at_transaction;
+                            $laba = (float) $item->subtotal - $hpp;
+
+                            $totalSubtotal += (float) $item->subtotal;
+                            $totalHpp += $hpp;
+                            $totalLaba += $laba;
+
+                            fputcsv($handle, [
+                                $item->stock?->code ?? '',
+                                $item->stock?->descr ?? '',
+                                $item->stock?->satuan ?? '',
+                                number_format((float) $item->qty, 2, ',', '.'),
+                                number_format((float) $item->unit_price, 2, ',', '.'),
+                                number_format((float) $item->subtotal, 2, ',', '.'),
+                                number_format($hpp, 2, ',', '.'),
+                                number_format($laba, 2, ',', '.'),
+                            ]);
+                        }
+
+                        fputcsv($handle, []);
+                        fputcsv($handle, [
+                            'TOTAL',
+                            '',
+                            '',
+                            '',
+                            '',
+                            '',
+                            number_format($totalSubtotal, 2, ',', '.'),
+                            number_format($totalHpp, 2, ',', '.'),
+                            number_format($totalLaba, 2, ',', '.'),
+                        ]);
+
+                        fclose($handle);
+                    };
+
+                    return response()->streamDownload($callback, $filename, [
+                        'Content-Type' => 'text/csv; charset=UTF-8',
+                    ]);
+                })->name('retur-penjualan.export');
+
+                Route::get('/retur-pembelian/{trHeader}/laporan', function (TrHeader $trHeader) {
+                    abort_unless($trHeader->trr_type === 'PURCHASE_RET', 404);
+
+                    $trHeader->load('supplier', 'sourcePurchase', 'details.stock');
+
+                    return view('laporan.retur-pembelian', ['header' => $trHeader, 'autoPrint' => false]);
+                })->name('retur-pembelian.laporan');
+
+                Route::get('/retur-pembelian/{trHeader}/cetak', function (TrHeader $trHeader) {
+                    abort_unless($trHeader->trr_type === 'PURCHASE_RET', 404);
+
+                    $trHeader->load('supplier', 'sourcePurchase', 'details.stock');
+
+                    return view('laporan.retur-pembelian', ['header' => $trHeader, 'autoPrint' => true]);
+                })->name('retur-pembelian.cetak');
+
+                Route::get('/retur-pembelian/{trHeader}/export', function (TrHeader $trHeader) {
+                    abort_unless($trHeader->trr_type === 'PURCHASE_RET', 404);
+
+                    $trHeader->load('supplier', 'sourcePurchase', 'details.stock');
+
+                    $filename = 'retur-pembelian-'.$trHeader->trs_number.'.csv';
+
+                    $callback = function () use ($trHeader): void {
+                        $handle = fopen('php://output', 'w');
+
+                        fwrite($handle, "\xEF\xBB\xBF");
+
+                        fputcsv($handle, ['LAPORAN RETUR PEMBELIAN']);
+                        fputcsv($handle, ['No. Transaksi', 'Tanggal', 'Jenis', 'No. Faktur Beli', 'Supplier', 'Alamat', 'Phone']);
+                        fputcsv($handle, [
+                            $trHeader->trs_number,
+                            $trHeader->trs_date->format('d M Y'),
+                            (int) $trHeader->trs_type === 1 ? 'Kredit' : 'Tunai',
+                            $trHeader->sourcePurchase?->trs_number ?? '',
+                            $trHeader->supplier?->descr ?? '',
+                            $trHeader->supplier?->alamat ?? '',
+                            $trHeader->supplier?->phone ?? '',
+                        ]);
+                        fputcsv($handle, []);
+                        fputcsv($handle, ['Kode', 'Nama Barang', 'Satuan', 'Qty', 'Harga', 'Subtotal']);
+
+                        $totalSubtotal = 0.0;
+
+                        foreach ($trHeader->details as $item) {
+                            $totalSubtotal += (float) $item->subtotal;
+
+                            fputcsv($handle, [
+                                $item->stock?->code ?? '',
+                                $item->stock?->descr ?? '',
+                                $item->stock?->satuan ?? '',
+                                number_format((float) $item->qty, 2, ',', '.'),
+                                number_format((float) $item->unit_price, 2, ',', '.'),
+                                number_format((float) $item->subtotal, 2, ',', '.'),
+                            ]);
+                        }
+
+                        fputcsv($handle, []);
+                        fputcsv($handle, [
+                            'TOTAL',
+                            '',
+                            '',
+                            '',
+                            '',
+                            number_format($totalSubtotal, 2, ',', '.'),
+                        ]);
+
+                        fclose($handle);
+                    };
+
+                    return response()->streamDownload($callback, $filename, [
+                        'Content-Type' => 'text/csv; charset=UTF-8',
+                    ]);
+                })->name('retur-pembelian.export');
             })
             ->authMiddleware([
                 Authenticate::class,

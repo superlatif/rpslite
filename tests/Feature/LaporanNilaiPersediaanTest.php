@@ -38,3 +38,39 @@ it('summarizes total stock and total inventory value', function () {
         ->assertTableColumnSummarySet('stock', 'total_stok', 15)
         ->assertTableColumnSummarySet('nilai_persediaan', 'total_nilai', 60000);
 });
+
+it('registers cetak and export excel header actions with the report URL', function () {
+    Livewire::test(LaporanNilaiPersediaan::class)
+        ->assertActionHasUrl('cetak', route('filament.admin.laporan-nilai-persediaan.cetak', [
+            'only_available' => 1,
+        ]))
+        ->assertActionHasUrl('exportExcel', route('filament.admin.laporan-nilai-persediaan.export', [
+            'only_available' => 1,
+        ]));
+});
+
+it('prints the inventory value report from the cetak route', function () {
+    TbStock::factory()->create(['code' => 'BRG-001', 'descr' => 'Bollpoin', 'stock' => 10, 'harga_beli' => 5000]);
+
+    $this->get(route('filament.admin.laporan-nilai-persediaan.cetak'))
+        ->assertOk()
+        ->assertSee('LAPORAN NILAI PERSEDIAAN')
+        ->assertSee('Bollpoin')
+        ->assertSee('TOTAL');
+});
+
+it('exports the inventory value report as a CSV with BOM', function () {
+    $stock = TbStock::factory()->create(['code' => 'BRG-001', 'descr' => 'Bollpoin', 'stock' => 10, 'harga_beli' => 5000]);
+
+    $response = $this->get(route('filament.admin.laporan-nilai-persediaan.export'));
+
+    $response->assertOk();
+
+    $content = $response->streamedContent();
+
+    expect($content)->toStartWith("\xEF\xBB\xBF")
+        ->and($content)->toContain('Nilai Persediaan')
+        ->and($content)->toContain('BRG-001')
+        ->and($content)->toContain('Bollpoin')
+        ->and($content)->toContain('TOTAL');
+});

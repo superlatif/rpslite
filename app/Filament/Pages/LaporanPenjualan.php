@@ -85,6 +85,29 @@ class LaporanPenjualan extends Page implements HasTable
                     $this->customer_id = $data['customer_id'] ?? null;
                     $this->group_by = $data['group_by'];
                 }),
+
+            Action::make('cetak')
+                ->label('Cetak')
+                ->icon(Heroicon::OutlinedPrinter)
+                ->url(fn (): string => route('filament.admin.laporan-penjualan.cetak', [
+                    'date_from' => $this->date_from,
+                    'date_until' => $this->date_until,
+                    'customer_id' => $this->customer_id,
+                    'group_by' => $this->group_by,
+                ]))
+                ->openUrlInNewTab()
+                ->disabled(fn (): bool => blank($this->date_from) || blank($this->date_until)),
+
+            Action::make('exportExcel')
+                ->label('Export Excel')
+                ->icon(Heroicon::OutlinedArrowDownTray)
+                ->url(fn (): string => route('filament.admin.laporan-penjualan.export', [
+                    'date_from' => $this->date_from,
+                    'date_until' => $this->date_until,
+                    'customer_id' => $this->customer_id,
+                    'group_by' => $this->group_by,
+                ]))
+                ->disabled(fn (): bool => blank($this->date_from) || blank($this->date_until)),
         ];
     }
 

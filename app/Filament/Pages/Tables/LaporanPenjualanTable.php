@@ -43,6 +43,14 @@ class LaporanPenjualanTable
                 TextColumn::make('omzet')
                     ->label('Omzet')
                     ->numeric(2, '.', ',')
+                    ->alignEnd(),
+                TextColumn::make('hpp')
+                    ->label('HPP')
+                    ->numeric(2, '.', ',')
+                    ->alignEnd(),
+                TextColumn::make('laba')
+                    ->label('Laba')
+                    ->numeric(2, '.', ',')
                     ->alignEnd()
                     ->weight(FontWeight::Bold),
             ])
@@ -80,7 +88,7 @@ class LaporanPenjualanTable
             $rows = $details
                 ->groupBy(fn (TrDetail $detail): string => (string) $detail->header->customer_id)
                 ->map(function ($items): array {
-                    [$qty, $omzet] = self::summarize($items);
+                    [$qty, $omzet, $hpp] = self::summarize($items);
                     $customer = $items->first()->header->customer;
 
                     return [
@@ -88,6 +96,8 @@ class LaporanPenjualanTable
                         'nama' => $customer?->descr ?? 'Tanpa Customer',
                         'qty' => $qty,
                         'omzet' => $omzet,
+                        'hpp' => $hpp,
+                        'laba' => round($omzet - $hpp, 2),
                     ];
                 })
                 ->sortBy('nama')
@@ -96,7 +106,7 @@ class LaporanPenjualanTable
             $rows = $details
                 ->groupBy('stock_id')
                 ->map(function ($items): array {
-                    [$qty, $omzet] = self::summarize($items);
+                    [$qty, $omzet, $hpp] = self::summarize($items);
                     $stock = $items->first()->stock;
 
                     return [
@@ -104,6 +114,8 @@ class LaporanPenjualanTable
                         'nama' => $stock?->descr ?? 'Barang Dihapus',
                         'qty' => $qty,
                         'omzet' => $omzet,
+                        'hpp' => $hpp,
+                        'laba' => round($omzet - $hpp, 2),
                     ];
                 })
                 ->sortBy('nama')
@@ -112,6 +124,8 @@ class LaporanPenjualanTable
 
         $totalQty = $rows->sum('qty');
         $totalOmzet = $rows->sum('omzet');
+        $totalHpp = $rows->sum('hpp');
+        $totalLaba = $rows->sum('laba');
 
         return $rows
             ->push([
@@ -119,26 +133,30 @@ class LaporanPenjualanTable
                 'nama' => 'Total',
                 'qty' => $totalQty,
                 'omzet' => $totalOmzet,
+                'hpp' => $totalHpp,
+                'laba' => $totalLaba,
             ])
             ->all();
     }
 
     /**
      * @param  Collection<int, TrDetail>  $items
-     * @return array{0: float, 1: float}
+     * @return array{0: float, 1: float, 2: float}
      */
     protected static function summarize($items): array
     {
         $qty = 0.0;
         $omzet = 0.0;
+        $hpp = 0.0;
 
         foreach ($items as $detail) {
             $direction = $detail->header->trr_type === 'SALE' ? 1 : -1;
 
             $qty += $direction * (float) $detail->qty;
             $omzet += $direction * (float) $detail->subtotal;
+            $hpp += $direction * (float) $detail->qty * (float) $detail->hpp_at_transaction;
         }
 
-        return [round($qty, 2), round($omzet, 2)];
+        return [round($qty, 2), round($omzet, 2), round($hpp, 2)];
     }
 }

@@ -2,9 +2,14 @@
 
 namespace App\Filament\Resources\TrPurchaseReturns\Tables;
 
+use App\Models\TrHeader;
 use Carbon\Carbon;
+use Filament\Actions\Action;
+use Filament\Actions\ActionGroup;
 use Filament\Forms\Components\DatePicker;
+use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Enums\RecordActionsPosition;
 use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
@@ -26,6 +31,11 @@ class TrPurchaseReturnsTable
                     ->sortable(),
                 TextColumn::make('supplier.descr')
                     ->label('Supplier'),
+                TextColumn::make('sourcePurchase.trs_number')
+                    ->label('No. Faktur Beli')
+                    ->searchable()
+                    ->sortable()
+                    ->placeholder('-'),
                 TextColumn::make('total_amount')
                     ->label('Total')
                     ->numeric(2, '.', ',')
@@ -102,6 +112,15 @@ class TrPurchaseReturnsTable
                         return implode(' - ', $indicators);
                     }),
             ])->persistFiltersInSession()
+            ->recordActions([
+                ActionGroup::make([
+                    Action::make('laporanReturPembelian')
+                        ->label('Laporan Retur')
+                        ->icon(Heroicon::OutlinedDocumentText)
+                        ->url(fn (TrHeader $record): string => route('filament.admin.retur-pembelian.laporan', $record))
+                        ->openUrlInNewTab(),
+                ]),
+            ], position: RecordActionsPosition::BeforeColumns)
 
             ->toolbarActions([
                 //

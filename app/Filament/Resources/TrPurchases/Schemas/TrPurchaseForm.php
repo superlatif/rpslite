@@ -23,7 +23,7 @@ class TrPurchaseForm
         return $schema
             ->components([
                 Group::make([
-                    Grid::make(2)->schema([
+                    Grid::make(3)->schema([
                         DatePicker::make('trs_date')
                             ->label('Tanggal')
                             ->required()
@@ -34,26 +34,26 @@ class TrPurchaseForm
                             ->searchable()
                             ->preload()
                             ->live()
+                            ->required()
                             ->createOptionForm(fn (): array => TbSupplierForm::components())
                             ->createOptionUsing(fn (array $data) => Supplier::create($data)->getKey())
                             ->afterStateUpdated(function ($state, callable $set) {
-                                // Jika supplier dipilih, biarkan trs_type bisa diubah (opsional)
                                 // Jika supplier dikosongkan, set trs_type ke 0
                                 if (blank($state)) {
                                     $set('trs_type', 0);
                                 }
                             }),
-                        // Select::make('trs_type')
-                        //     ->label('Jenis Pembayaran')
-                        //     ->options([
-                        //         0 => 'Tunai',
-                        //         1 => 'Kredit',
-                        //     ])
-                        //     ->default(0)
-                        //     ->disabled(fn (callable $get) => blank($get('supplier_id'))) // Disable jika supplier kosong
-                        //     ->dehydrated(fn (callable $get) => filled($get('supplier_id'))) // Hanya kirim data ke DB jika supplier ada
-                        //     ->helperText(fn (callable $get) => blank($get('supplier_id')) ? 'Pilih supplier terlebih dahulu' : null)
-                        //     ->required(),
+                        Select::make('trs_type')
+                            ->label('Jenis Pembayaran')
+                            ->options([
+                                0 => 'Tunai',
+                                1 => 'Kredit',
+                            ])
+                            ->default(0)
+                            ->disabled(fn (callable $get) => blank($get('supplier_id'))) // Disable jika supplier kosong
+                            ->dehydrated(fn (callable $get) => filled($get('supplier_id'))) // Hanya kirim data ke DB jika supplier ada
+                            ->helperText(fn (callable $get) => blank($get('supplier_id')) ? 'Pilih supplier terlebih dahulu' : null)
+                            ->required(),
                     ]),
 
                 ])->columnSpanFull(),

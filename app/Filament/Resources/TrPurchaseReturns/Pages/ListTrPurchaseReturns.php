@@ -40,26 +40,63 @@ class ListTrPurchaseReturns extends ListRecords
                 array_column($details, 'subtotal')
             );
 
+            // Faktur beli sumber retur: hanya PURCHASE kredit terbuka milik supplier terpilih
+            $source = TrHeader::query()
+                ->lockForUpdate()
+                ->find($data['source_purchase_id'] ?? null);
+
+            if (! $source
+                || $source->trr_type !== 'PURCHASE'
+                || (int) $source->trs_type !== 1
+                || (float) $source->remaining_amount <= 0
+            ) {
+                throw ValidationException::withMessages([
+                    'source_purchase_id' => 'Faktur beli tidak valid atau sudah tidak memiliki sisa tagihan.',
+                ]);
+            }
+
+            if ((int) $source->supplier_id !== (int) ($data['supplier_id'] ?? 0)) {
+                throw ValidationException::withMessages([
+                    'source_purchase_id' => 'Faktur beli bukan milik supplier yang dipilih.',
+                ]);
+            }
+
+            if ($total > (float) $source->remaining_amount) {
+                throw ValidationException::withMessages([
+                    'source_purchase_id' => 'Nilai retur melebihi sisa faktur beli (sisa: '.number_format((float) $source->remaining_amount, 0, ',', '.').').',
+                ]);
+            }
+
             $isKredit = (int) ($data['trs_type'] ?? 0) === 1;
 
             // =========================
             // HEADER
             // =========================
+            // Retur selalu diisi paid_amount (walau kredit) karena otomatis
+            // menambah paid_amount pada faktur beli sumber. Retur tunai
+            // dianggap supplier mengembalikan uang tunai kepada toko.
             $header = TrHeader::create([
                 'trs_number' => $this->generateNumber('RPB'),
                 'trs_date' => $data['trs_date'],
                 'trr_type' => 'PURCHASE_RET',
-                'supplier_id' => $data['supplier_id'],
+                'supplier_id' => $source->supplier_id,
+                'source_purchase_id' => $source->id,
                 'total_amount' => $total,
                 'trs_type' => $isKredit ? 1 : 0,
-                'paid_amount' => $isKredit ? 0 : $total,
-                'remaining_amount' => $isKredit ? $total : 0,
+                'paid_amount' => $total,
+                'remaining_amount' => 0,
             ]);
 
             // =========================
             // DETAIL
             // =========================
             $header->details()->createMany($details);
+
+            // =========================
+            // FAKTUR BELI SUMBER
+            // =========================
+            $source->decrement('remaining_amount', $total);
+            $source->increment('paid_amount', $total);
 
             // =========================
             // INVENTORY

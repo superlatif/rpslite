@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\TrPurchaseReturns\Schemas;
 
 use App\Models\TbStock;
+use App\Models\TrHeader;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Repeater\TableColumn;
@@ -31,24 +32,56 @@ class TrPurchaseReturnForm
                             ->searchable()
                             ->preload()
                             ->live()
+                            ->required()
                             ->afterStateUpdated(function ($state, callable $set) {
-                                // Jika supplier dipilih, biarkan trs_type bisa diubah (opsional)
-                                // Jika supplier dikosongkan, set trs_type ke 0
+                                // Supplier diganti -> faktur beli sebelumnya tidak relevan lagi
+                                $set('source_purchase_id', null);
+
                                 if (blank($state)) {
                                     $set('trs_type', 0);
                                 }
                             }),
-                        // Select::make('trs_type')
-                        //     ->label('Jenis Pembayaran')
-                        //     ->options([
-                        //         0 => 'Tunai',
-                        //         1 => 'Kredit',
-                        //     ])
-                        //     ->default(0)
-                        //     ->disabled(fn (callable $get) => blank($get('supplier_id'))) // Disable jika supplier kosong
-                        //     ->dehydrated(fn (callable $get) => filled($get('supplier_id'))) // Hanya kirim data ke DB jika supplier ada
-                        //     ->helperText(fn (callable $get) => blank($get('supplier_id')) ? 'Pilih supplier terlebih dahulu' : null)
-                        //     ->required(),
+                        Select::make('source_purchase_id')
+                            ->label('No. Faktur Beli')
+                            ->options(fn (callable $get): array => TrHeader::query()
+                                ->where('trr_type', 'PURCHASE')
+                                ->where('trs_type', 1)
+                                ->where('remaining_amount', '>', 0)
+                                ->when(
+                                    filled($get('supplier_id')),
+                                    fn ($query) => $query->where('supplier_id', $get('supplier_id'))
+                                )
+                                ->orderBy('trs_date')
+                                ->orderBy('trs_number')
+                                ->get()
+                                ->mapWithKeys(
+                                    fn (TrHeader $header): array => [
+                                        $header->id => $header->trs_number.' — sisa '.number_format((float) $header->remaining_amount, 0, ',', '.'),
+                                    ]
+                                )
+                                ->all())
+                            ->searchable()
+                            ->preload()
+                            ->required()
+                            ->live()
+                            ->helperText(fn (callable $get): ?string => filled($get('supplier_id'))
+                                ? 'Pilih faktur beli kredit yang masih memiliki sisa tagihan.'
+                                : 'Pilih supplier terlebih dahulu.'),
+                        Select::make('trs_type')
+                            ->label('Jenis Pembayaran')
+                            ->options([
+                                0 => 'Tunai',
+                                1 => 'Kredit',
+                            ])
+                            ->default(0)
+                            ->disabled(fn (callable $get) => blank($get('supplier_id')))
+                            ->dehydrated(fn (callable $get) => filled($get('supplier_id')))
+                            ->helperText(fn (callable $get): ?string => blank($get('supplier_id'))
+                                ? 'Pilih supplier terlebih dahulu'
+                                : ((int) ($get('trs_type') ?? 0) === 1
+                                    ? 'Retur kredit mengurangi utang pada faktur beli.'
+                                    : 'Retur tunai dianggap supplier mengembalikan uang tunai kepada toko.'))
+                            ->required(),
                     ]),
                 ])->columnSpanFull(),
 

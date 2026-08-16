@@ -75,4 +75,35 @@ class LaporanNilaiPersediaanTable
             ])
             ->defaultSort('descr');
     }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    public static function buildRows(?string $cateId = null, mixed $onlyAvailable = null): array
+    {
+        $query = TbStock::query()
+            ->with('cate')
+            ->orderBy('descr');
+
+        if (filled($cateId)) {
+            $query->where('tb_cate_id', $cateId);
+        }
+
+        if ((int) $onlyAvailable === 1) {
+            $query->where('stock', '>', 0);
+        }
+
+        return $query
+            ->get()
+            ->map(fn (TbStock $stock): array => [
+                'code' => (string) $stock->code,
+                'descr' => (string) $stock->descr,
+                'satuan' => (string) ($stock->satuan ?? ''),
+                'stock' => (int) $stock->stock,
+                'harga_pokok' => (float) $stock->harga_pokok,
+                'nilai_persediaan' => round((float) $stock->stock * (float) $stock->harga_pokok, 2),
+                'kategori' => (string) ($stock->cate?->descr ?? ''),
+            ])
+            ->all();
+    }
 }

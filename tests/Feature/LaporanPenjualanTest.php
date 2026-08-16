@@ -1,7 +1,6 @@
 <?php
 
-use App\Filament\Pages\LaporanPenjualan;
-use App\Filament\Pages\Tables\LaporanPenjualanTable;
+use App\Filament\Resources\TrSales\Pages\ListTrSales;
 use App\Models\Customer;
 use App\Models\TbStock;
 use App\Models\TrDetail;
@@ -18,107 +17,153 @@ beforeEach(function () {
     actingAs(User::factory()->create());
 });
 
-function buatTransaksi(string $type, string $trsNumber, string $date, TbStock $stock, int $customerId, float $qty, float $price): void
-{
-    $header = TrHeader::factory()->create([
-        'trs_number' => $trsNumber,
-        'trs_date' => $date,
-        'trr_type' => $type,
-        'customer_id' => $customerId,
+it('renders the sales report with customer info, details and totals', function () {
+    $customer = Customer::create([
+        'descr' => 'Budi Santoso',
+        'alamat' => 'Jl. Merdeka No. 10',
+        'phone' => '081234567890',
+    ]);
+
+    $stock = TbStock::factory()->create([
+        'code' => 'BRG-001',
+        'descr' => 'Bollpoin',
+        'satuan' => 'PCS',
+    ]);
+
+    $sale = TrHeader::factory()->create([
+        'trs_number' => 'PJ-000001',
+        'trs_date' => '2026-08-15',
+        'trr_type' => 'SALE',
+        'customer_id' => $customer->id,
+        'trs_type' => 0,
+        'total_amount' => 16000,
+        'paid_amount' => 16000,
+        'remaining_amount' => 0,
     ]);
 
     TrDetail::factory()->create([
-        'tr_header_id' => $header->id,
+        'tr_header_id' => $sale->id,
         'stock_id' => $stock->id,
-        'qty' => $qty,
-        'unit_price' => $price,
-        'subtotal' => $qty * $price,
+        'qty' => 2,
+        'unit_price' => 8000,
+        'hpp_at_transaction' => 5000,
+        'subtotal' => 16000,
     ]);
-}
 
-it('summarizes qty and omzet per item, subtracting sales returns', function () {
-    $customer = Customer::create(['descr' => 'Customer A']);
-    $itemX = TbStock::factory()->create();
-    $itemY = TbStock::factory()->create();
-
-    buatTransaksi('SALE', 'PJ-000001', '2026-08-05', $itemX, $customer->id, 10, 1000);
-    buatTransaksi('SALE_RET', 'RPJ-000001', '2026-08-10', $itemX, $customer->id, 2, 1000);
-    buatTransaksi('SALE', 'PJ-000002', '2026-08-15', $itemY, $customer->id, 5, 2000);
-
-    $rows = LaporanPenjualanTable::buildRows('2026-08-01', '2026-08-31', '', 'barang');
-
-    $rowX = collect($rows)->firstWhere('nama', $itemX->descr);
-    $rowY = collect($rows)->firstWhere('nama', $itemY->descr);
-    $total = collect($rows)->firstWhere('nama', 'Total');
-
-    expect((float) $rowX['qty'])->toBe(8.0)
-        ->and((float) $rowX['omzet'])->toBe(8000.0)
-        ->and((float) $rowY['qty'])->toBe(5.0)
-        ->and((float) $rowY['omzet'])->toBe(10000.0)
-        ->and((float) $total['qty'])->toBe(13.0)
-        ->and((float) $total['omzet'])->toBe(18000.0);
-});
-
-it('summarizes qty and omzet per customer', function () {
-    $customerA = Customer::create(['descr' => 'Customer A']);
-    $customerB = Customer::create(['descr' => 'Customer B']);
-    $itemX = TbStock::factory()->create();
-    $itemY = TbStock::factory()->create();
-
-    buatTransaksi('SALE', 'PJ-000001', '2026-08-05', $itemX, $customerA->id, 10, 1000);
-    buatTransaksi('SALE_RET', 'RPJ-000001', '2026-08-10', $itemX, $customerA->id, 2, 1000);
-    buatTransaksi('SALE', 'PJ-000002', '2026-08-15', $itemY, $customerB->id, 5, 2000);
-
-    $rows = LaporanPenjualanTable::buildRows('2026-08-01', '2026-08-31', '', 'customer');
-
-    $rowA = collect($rows)->firstWhere('nama', 'Customer A');
-    $rowB = collect($rows)->firstWhere('nama', 'Customer B');
-    $total = collect($rows)->firstWhere('nama', 'Total');
-
-    expect((float) $rowA['qty'])->toBe(8.0)
-        ->and((float) $rowA['omzet'])->toBe(8000.0)
-        ->and((float) $rowB['qty'])->toBe(5.0)
-        ->and((float) $rowB['omzet'])->toBe(10000.0)
-        ->and((float) $total['qty'])->toBe(13.0)
-        ->and((float) $total['omzet'])->toBe(18000.0);
-});
-
-it('filters sales report by a specific customer', function () {
-    $customerA = Customer::create(['descr' => 'Customer A']);
-    $customerB = Customer::create(['descr' => 'Customer B']);
-    $itemX = TbStock::factory()->create();
-
-    buatTransaksi('SALE', 'PJ-000001', '2026-08-05', $itemX, $customerA->id, 10, 1000);
-    buatTransaksi('SALE', 'PJ-000002', '2026-08-15', $itemX, $customerB->id, 5, 2000);
-
-    $rows = LaporanPenjualanTable::buildRows('2026-08-01', '2026-08-31', (string) $customerA->id, 'barang');
-
-    $rowX = collect($rows)->firstWhere('nama', $itemX->descr);
-    $total = collect($rows)->firstWhere('nama', 'Total');
-
-    expect((float) $rowX['qty'])->toBe(10.0)
-        ->and((float) $rowX['omzet'])->toBe(10000.0)
-        ->and((float) $total['omzet'])->toBe(10000.0);
-});
-
-it('loads the sales report page and renders the summary', function () {
-    $customer = Customer::create(['descr' => 'Customer A']);
-    $itemX = TbStock::factory()->create();
-
-    buatTransaksi('SALE', 'PJ-000001', '2026-08-05', $itemX, $customer->id, 10, 1000);
-
-    Livewire::test(LaporanPenjualan::class)
-        ->set('date_from', '2026-08-01')
-        ->set('date_until', '2026-08-31')
-        ->set('group_by', 'barang')
+    $this->get(route('filament.admin.penjualan.laporan', $sale))
         ->assertOk()
-        ->assertSee($itemX->descr)
-        ->assertSee('Total');
+        ->assertSee('LAPORAN PENJUALAN')
+        ->assertSee('PJ-000001')
+        ->assertSee('Budi Santoso')
+        ->assertSee('Jl. Merdeka No. 10')
+        ->assertSee('081234567890')
+        ->assertSee('BRG-001')
+        ->assertSee('Bollpoin')
+        ->assertSee('TOTAL')
+        ->assertSee('Cetak')
+        ->assertSee('Export Excel');
+});
 
-    Livewire::test(LaporanPenjualan::class)
-        ->set('date_from', '2026-08-01')
-        ->set('date_until', '2026-08-31')
-        ->set('group_by', 'customer')
+it('shows a dashed phone when the customer has none', function () {
+    $customer = Customer::create(['descr' => 'Budi Santoso', 'phone' => null]);
+
+    $sale = TrHeader::factory()->create([
+        'trr_type' => 'SALE',
+        'customer_id' => $customer->id,
+    ]);
+
+    $this->get(route('filament.admin.penjualan.laporan', $sale))
         ->assertOk()
-        ->assertSee('Customer A');
+        ->assertSee('---');
+});
+
+it('prints the sales report from the cetak route', function () {
+    $stock = TbStock::factory()->create(['descr' => 'Bollpoin']);
+
+    $sale = TrHeader::factory()->create([
+        'trs_number' => 'PJ-000001',
+        'trr_type' => 'SALE',
+    ]);
+
+    TrDetail::factory()->create([
+        'tr_header_id' => $sale->id,
+        'stock_id' => $stock->id,
+        'qty' => 2,
+        'unit_price' => 8000,
+        'hpp_at_transaction' => 5000,
+        'subtotal' => 16000,
+    ]);
+
+    $this->get(route('filament.admin.penjualan.cetak', $sale))
+        ->assertOk()
+        ->assertSee('LAPORAN PENJUALAN')
+        ->assertSee('PJ-000001')
+        ->assertSee('Bollpoin')
+        ->assertSee('TOTAL')
+        ->assertDontSee('Export Excel');
+});
+
+it('exports the sales report as a CSV with BOM', function () {
+    $customer = Customer::create(['descr' => 'Budi Santoso']);
+    $stock = TbStock::factory()->create(['code' => 'BRG-001', 'descr' => 'Bollpoin']);
+
+    $sale = TrHeader::factory()->create([
+        'trs_number' => 'PJ-000001',
+        'trr_type' => 'SALE',
+        'customer_id' => $customer->id,
+    ]);
+
+    TrDetail::factory()->create([
+        'tr_header_id' => $sale->id,
+        'stock_id' => $stock->id,
+        'qty' => 2,
+        'unit_price' => 8000,
+        'hpp_at_transaction' => 5000,
+        'subtotal' => 16000,
+    ]);
+
+    $response = $this->get(route('filament.admin.penjualan.export', $sale));
+
+    $response->assertOk();
+
+    $content = $response->streamedContent();
+
+    expect($content)->toStartWith("\xEF\xBB\xBF")
+        ->and($content)->toContain('No. Transaksi')
+        ->and($content)->toContain('PJ-000001')
+        ->and($content)->toContain('Bollpoin')
+        ->and($content)->toContain('TOTAL');
+});
+
+it('requires authentication to view the sales report', function () {
+    $sale = TrHeader::factory()->create(['trr_type' => 'SALE']);
+
+    auth()->logout();
+
+    $this->get(route('filament.admin.penjualan.laporan', $sale))
+        ->assertRedirect(route('filament.admin.auth.login'));
+});
+
+it('rejects headers that are not sales', function () {
+    $purchase = TrHeader::factory()->create(['trr_type' => 'PURCHASE']);
+
+    $this->get(route('filament.admin.penjualan.laporan', $purchase))->assertNotFound();
+    $this->get(route('filament.admin.penjualan.cetak', $purchase))->assertNotFound();
+    $this->get(route('filament.admin.penjualan.export', $purchase))->assertNotFound();
+});
+
+it('registers a sales report action on the table that opens the report URL', function () {
+    $sale = TrHeader::factory()->create([
+        'trr_type' => 'SALE',
+        'trs_number' => 'PJ-000001',
+        'trs_date' => now(),
+    ]);
+
+    Livewire::test(ListTrSales::class)
+        ->assertTableActionHasUrl(
+            'laporanPenjualan',
+            route('filament.admin.penjualan.laporan', $sale),
+            $sale->getKey(),
+        )
+        ->assertTableActionShouldOpenUrlInNewTab('laporanPenjualan', $sale->getKey());
 });

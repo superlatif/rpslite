@@ -2,9 +2,14 @@
 
 namespace App\Filament\Resources\TrPurchases\Tables;
 
+use App\Models\TrHeader;
 use Carbon\Carbon;
+use Filament\Actions\Action;
+use Filament\Actions\ActionGroup;
 use Filament\Forms\Components\DatePicker;
+use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Enums\RecordActionsPosition;
 use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
@@ -59,8 +64,6 @@ class TrPurchasesTable
                     ->searchable()
                     ->preload(),
                 Filter::make('trs_date')
-                    // ->label('Tanggal Transaksi')
-                    // ->indicator('test')
                     ->schema([
                         DatePicker::make('date_from')
                             ->label('Transaksi mulai dari')
@@ -89,7 +92,6 @@ class TrPurchasesTable
                         }
 
                         $indicators = [];
-
                         if (filled($data['date_from'])) {
                             $indicators[] = 'Mulai: '.Carbon::parse($data['date_from'])->format('d M Y');
                         }
@@ -102,6 +104,15 @@ class TrPurchasesTable
                         return implode(' - ', $indicators);
                     }),
             ])->persistFiltersInSession()
+            ->recordActions([
+                ActionGroup::make([
+                    Action::make('laporanPembelian')
+                        ->label('Detail Pembelian')
+                        ->icon(Heroicon::OutlinedDocumentText)
+                        ->url(fn (TrHeader $record): string => route('filament.admin.pembelian.laporan', $record))
+                        ->openUrlInNewTab(),
+                ]),
+            ], position: RecordActionsPosition::BeforeColumns)
 
             ->toolbarActions([
                 //

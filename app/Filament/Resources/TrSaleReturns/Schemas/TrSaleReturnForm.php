@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\TrSaleReturns\Schemas;
 
 use App\Models\TbStock;
+use App\Models\TrHeader;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Repeater\TableColumn;
@@ -20,7 +21,7 @@ class TrSaleReturnForm
         return $schema
             ->components([
                 Group::make([
-                    Grid::make(3)->schema([
+                    Grid::make(2)->schema([
                         DatePicker::make('trs_date')
                             ->label('Tanggal')
                             ->required()
@@ -31,13 +32,41 @@ class TrSaleReturnForm
                             ->searchable()
                             ->preload()
                             ->live()
+                            ->required()
                             ->afterStateUpdated(function ($state, callable $set) {
-                                // Jika customer dipilih, biarkan trs_type bisa diubah (opsional)
-                                // Jika customer dikosongkan, set trs_type ke 0
+                                // Customer diganti -> faktur jual sebelumnya tidak relevan lagi
+                                $set('source_sale_id', null);
+
                                 if (blank($state)) {
                                     $set('trs_type', 0);
                                 }
                             }),
+                        Select::make('source_sale_id')
+                            ->label('No. Faktur Jual')
+                            ->options(fn (callable $get): array => TrHeader::query()
+                                ->where('trr_type', 'SALE')
+                                ->where('trs_type', 1)
+                                ->where('remaining_amount', '>', 0)
+                                ->when(
+                                    filled($get('customer_id')),
+                                    fn ($query) => $query->where('customer_id', $get('customer_id'))
+                                )
+                                ->orderBy('trs_date')
+                                ->orderBy('trs_number')
+                                ->get()
+                                ->mapWithKeys(
+                                    fn (TrHeader $header): array => [
+                                        $header->id => $header->trs_number.' — sisa '.number_format((float) $header->remaining_amount, 0, ',', '.'),
+                                    ]
+                                )
+                                ->all())
+                            ->searchable()
+                            ->preload()
+                            ->required()
+                            ->live()
+                            ->helperText(fn (callable $get): ?string => filled($get('customer_id'))
+                                ? 'Pilih faktur jual kredit yang masih memiliki sisa tagihan.'
+                                : 'Pilih customer terlebih dahulu.'),
                         Select::make('trs_type')
                             ->label('Jenis Pembayaran')
                             ->options([
@@ -45,9 +74,13 @@ class TrSaleReturnForm
                                 1 => 'Kredit',
                             ])
                             ->default(0)
-                            ->disabled(fn (callable $get) => blank($get('customer_id'))) // Disable jika customer kosong
-                            ->dehydrated(fn (callable $get) => filled($get('customer_id'))) // Hanya kirim data ke DB jika customer ada
-                            ->helperText(fn (callable $get) => blank($get('customer_id')) ? 'Pilih customer terlebih dahulu' : null)
+                            ->disabled(fn (callable $get) => blank($get('customer_id')))
+                            ->dehydrated(fn (callable $get) => filled($get('customer_id')))
+                            ->helperText(fn (callable $get): ?string => blank($get('customer_id'))
+                                ? 'Pilih customer terlebih dahulu'
+                                : ((int) ($get('trs_type') ?? 0) === 1
+                                    ? 'Retur kredit mengurangi piutang pada faktur jual.'
+                                    : 'Retur tunai dianggap pemilik toko mengembalikan uang tunai.'))
                             ->required(),
                     ]),
                 ])->columnSpanFull(),
