@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Laporan Penjualan</title>
+    <title>Laporan Pembelian</title>
     <style>
         * { box-sizing: border-box; }
         body {
@@ -38,10 +38,8 @@
 <body>
     @php
         $money = fn (float|int|string $value): string => number_format((float) $value, 2, ',', '.');
-        $totalOmzet = 0.0;
+        $totalPembelian = 0.0;
         $totalRetur = 0.0;
-        $totalHpp = 0.0;
-        $totalLaba = 0.0;
     @endphp
 
     <div class="toolbar">
@@ -50,10 +48,10 @@
 
     <div class="report">
         <div class="center brand">{{ config('app.name') }}</div>
-        <div class="center title">LAPORAN PENJUALAN</div>
+        <div class="center title">LAPORAN PEMBELIAN</div>
         <div class="center">Periode: {{ filled($dateFrom) ? \Carbon\Carbon::parse($dateFrom)->format('d M Y') : '-' }} - {{ filled($dateUntil) ? \Carbon\Carbon::parse($dateUntil)->format('d M Y') : '-' }}</div>
-        @if (filled($customerId))
-            <div class="center">Customer: {{ $headers->firstWhere('customer_id', (int) $customerId)?->customer?->descr ?? '-' }}</div>
+        @if (filled($supplierId))
+            <div class="center">Supplier: {{ $headers->firstWhere('supplier_id', (int) $supplierId)?->supplier?->descr ?? '-' }}</div>
         @endif
         @if (filled($trsType))
             <div class="center">Jenis: {{ (int) $trsType === 1 ? 'Kredit' : 'Tunai' }}</div>
@@ -67,48 +65,37 @@
                     <th>No. Transaksi</th>
                     <th>Tanggal</th>
                     <th>Tipe</th>
-                    <th>Customer</th>
+                    <th>Supplier</th>
                     <th>Jenis</th>
-                    <th class="right">Penjualan</th>
+                    <th class="right">Pembelian</th>
                     <th class="right">Retur</th>
-                    <th class="right">HPP</th>
-                    <th class="right">Laba</th>
                 </tr>
             </thead>
             <tbody>
                 @foreach ($headers as $index => $header)
                     @php
-                        $omzet = $header->trr_type === 'SALE' ? (float) $header->total_amount : 0;
-                        $retur = $header->trr_type === 'SALE_RET' ? (float) $header->total_amount : 0;
-                        $hpp = $header->details->sum(fn ($detail): float => (float) $detail->qty * (float) $detail->hpp_at_transaction)
-                            * ($header->trr_type === 'SALE_RET' ? -1 : 1);
-                        $laba = $omzet - $retur - $hpp;
-                        $totalOmzet += $omzet;
-                        $totalRetur += $retur;
-                        $totalHpp += $hpp;
-                        $totalLaba += $laba;
+                        $debet = str_starts_with($header->trs_number, 'PB') ? (float) $header->total_amount : 0;
+                        $kredit = str_starts_with($header->trs_number, 'RPB') ? (float) $header->total_amount : 0;
+                        $totalPembelian += $debet;
+                        $totalRetur += $kredit;
                     @endphp
                     <tr>
                         <td>{{ $index + 1 }}</td>
                         <td>{{ $header->trs_number }}</td>
                         <td>{{ $header->trs_date->format('d M Y') }}</td>
-                        <td>{{ $header->trr_type === 'SALE' ? 'Penjualan' : 'Retur Penjualan' }}</td>
-                        <td>{{ $header->customer?->descr ?? '-' }}</td>
+                        <td>{{ $header->trr_type === 'PURCHASE' ? 'Pembelian' : 'Retur Pembelian' }}</td>
+                        <td>{{ $header->supplier?->descr ?? '-' }}</td>
                         <td>{{ (int) $header->trs_type === 1 ? 'Kredit' : 'Tunai' }}</td>
-                        <td class="right">{{ $omzet > 0 ? $money($omzet) : '' }}</td>
-                        <td class="right">{{ $retur > 0 ? $money($retur) : '' }}</td>
-                        <td class="right">{{ $money($hpp) }}</td>
-                        <td class="right">{{ $money($laba) }}</td>
+                        <td class="right">{{ $debet > 0 ? $money($debet) : '' }}</td>
+                        <td class="right">{{ $kredit > 0 ? $money($kredit) : '' }}</td>
                     </tr>
                 @endforeach
             </tbody>
             <tfoot>
                 <tr class="total-row">
                     <td colspan="6">TOTAL</td>
-                    <td class="right">{{ $money($totalOmzet) }}</td>
+                    <td class="right">{{ $money($totalPembelian) }}</td>
                     <td class="right">{{ $money($totalRetur) }}</td>
-                    <td class="right">{{ $money($totalHpp) }}</td>
-                    <td class="right">{{ $money($totalLaba) }}</td>
                 </tr>
             </tfoot>
         </table>

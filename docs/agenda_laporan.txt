@@ -26,3 +26,9 @@ Angsuran	penerimaan angsuran per periode per customer
 Semua laporan idealnya punya filter periode (tanggal) + export Excel/PDF (Filament 5 sudah punya ExportAction/tabel + header actions).
 Prioritas tertinggi mengingat data & kebutuhan POS: Piutang (karena ada angsuran kredit) dan Stok menipis/habis — dua ini paling butuh 
 perhatian harian. Mau saya buatkan widget-widget dashboard atau laporannya (misal mulai dari dashboard widget)?
+
+struk printer
+Rekomendasi Stack/Teknologi untuk Laravel Kasir Mobile
+    Printer: Thermal Printer Bluetooth 58mm/80mm (portabel) atau Thermal Printer LAN/Wi-Fi (stasioner).
+    Package PHP: mike42/escpos-php (jika Laravel & Printer di jaringan lokal yang sama).
+    Android Bridge: Integration via Web Intent ke RawBT (jika menggunakan browser smartphone & printer Bluetooth).

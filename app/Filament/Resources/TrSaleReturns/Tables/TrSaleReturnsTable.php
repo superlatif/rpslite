@@ -115,7 +115,7 @@ class TrSaleReturnsTable
             ->recordActions([
                 ActionGroup::make([
                     Action::make('laporanReturPenjualan')
-                        ->label('Laporan Retur')
+                        ->label('Detail Retur')
                         ->icon(Heroicon::OutlinedDocumentText)
                         ->url(fn (TrHeader $record): string => route('filament.admin.retur-penjualan.laporan', $record))
                         ->openUrlInNewTab(),

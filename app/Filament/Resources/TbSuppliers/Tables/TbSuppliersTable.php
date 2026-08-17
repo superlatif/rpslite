@@ -3,9 +3,9 @@
 namespace App\Filament\Resources\TbSuppliers\Tables;
 
 use App\Filament\Actions\SafeDeleteAction;
+use App\Filament\Actions\SafeDeleteBulkAction;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\BulkActionGroup;
-use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Enums\RecordActionsPosition;
@@ -40,7 +40,7 @@ class TbSuppliersTable
             ], position: RecordActionsPosition::BeforeColumns)
             ->toolbarActions([
                 BulkActionGroup::make([
-                    DeleteBulkAction::make(),
+                    SafeDeleteBulkAction::make(),
                 ]),
             ]);
     }

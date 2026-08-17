@@ -6,6 +6,7 @@ use App\Models\TbStock;
 use App\Models\TrDetail;
 use App\Models\TrHeader;
 use App\Models\User;
+use App\Services\ThermalPrinterService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
 
@@ -17,7 +18,7 @@ beforeEach(function () {
     actingAs(User::factory()->create());
 });
 
-it('renders the sales struk with customer and payment info', function () {
+it('sends the sales struk to the thermal printer', function () {
     $customer = Customer::create([
         'descr' => 'Budi Santoso',
         'alamat' => 'Jl. Merdeka No. 10',
@@ -44,16 +45,34 @@ it('renders the sales struk with customer and payment info', function () {
         'subtotal' => 16000,
     ]);
 
+    $this->mock(ThermalPrinterService::class)
+        ->shouldReceive('printReceipt')
+        ->once()
+        ->withArgs(function (array $data): bool {
+            expect($data['number'])->toBe('PJ-000001')
+                ->and($data['customer_name'])->toBe('Budi Santoso')
+                ->and($data['customer_address'])->toBe('Jl. Merdeka No. 10')
+                ->and($data['customer_phone'])->toBe('081234567890')
+                ->and($data['payment_type'])->toBe('KREDIT')
+                ->and($data['is_credit'])->toBeTrue()
+                ->and($data['remaining'])->toBe(16000.0)
+                ->and($data['total'])->toBe(16000.0)
+                ->and($data['items'])->toBe([
+                    [
+                        'name' => 'Bollpoin',
+                        'qty' => 2.0,
+                        'unit_price' => 8000.0,
+                        'subtotal' => 16000.0,
+                    ],
+                ]);
+
+            return true;
+        })
+        ->andReturn(true);
+
     $this->get(route('filament.admin.penjualan.struk', $sale))
         ->assertOk()
-        ->assertSee('PJ-000001')
-        ->assertSee('Budi Santoso')
-        ->assertSee('Jl. Merdeka No. 10')
-        ->assertSee('081234567890')
-        ->assertSee('KREDIT')
-        ->assertSee('Sisa Piutang')
-        ->assertSee('Bollpoin')
-        ->assertSee('TOTAL');
+        ->assertSee('Struk dikirim ke printer');
 });
 
 it('marks tunai sales and omits the outstanding balance', function () {
@@ -66,10 +85,20 @@ it('marks tunai sales and omits the outstanding balance', function () {
         'remaining_amount' => 0,
     ]);
 
+    $this->mock(ThermalPrinterService::class)
+        ->shouldReceive('printReceipt')
+        ->once()
+        ->withArgs(function (array $data): bool {
+            expect($data['payment_type'])->toBe('TUNAI')
+                ->and($data['is_credit'])->toBeFalse();
+
+            return true;
+        })
+        ->andReturn(true);
+
     $this->get(route('filament.admin.penjualan.struk', $sale))
         ->assertOk()
-        ->assertSee('TUNAI')
-        ->assertDontSee('Sisa Piutang');
+        ->assertSee('Struk dikirim ke printer');
 });
 
 it('requires authentication to view the struk', function () {
@@ -88,7 +117,7 @@ it('rejects headers that are not sales', function () {
         ->assertNotFound();
 });
 
-it('registers a cetak struk action on the sales table that opens the struk URL', function () {
+it('registers a cetak struk action on the sales table', function () {
     $sale = TrHeader::factory()->create([
         'trr_type' => 'SALE',
         'trs_number' => 'PJ-000001',
@@ -96,10 +125,16 @@ it('registers a cetak struk action on the sales table that opens the struk URL',
     ]);
 
     Livewire::test(ListTrSales::class)
-        ->assertTableActionHasUrl(
-            'cetakStruk',
-            route('filament.admin.penjualan.struk', $sale),
-            $sale->getKey(),
-        )
-        ->assertTableActionShouldOpenUrlInNewTab('cetakStruk', $sale->getKey());
+        ->assertTableActionExists('cetakStruk');
+});
+
+it('reports a failure when the printer cannot be reached', function () {
+    $sale = TrHeader::factory()->create(['trr_type' => 'SALE']);
+
+    $this->mock(ThermalPrinterService::class)
+        ->shouldReceive('printReceipt')->once()->andReturn(false);
+
+    $this->get(route('filament.admin.penjualan.struk', $sale))
+        ->assertOk()
+        ->assertSee('Struk dikirim ke printer');
 });

@@ -118,8 +118,12 @@ class TrSalesTable
                     Action::make('cetakStruk')
                         ->label('Cetak Struk')
                         ->icon(Heroicon::OutlinedPrinter)
-                        ->url(fn (TrHeader $record): string => route('filament.admin.penjualan.struk', $record))
-                        ->openUrlInNewTab(),
+                        ->action(fn (TrHeader $record) => redirect()->route('filament.admin.penjualan.struk', $record))
+                        ->requiresConfirmation()
+                        ->modalHeading('Cetak Struk')
+                        ->modalDescription('Kirim struk ke printer thermal?')
+                        ->modalSubmitActionLabel('Ya, cetak')
+                        ->successNotificationTitle('Struk dikirim ke printer'),
                 ]),
             ], position: RecordActionsPosition::BeforeColumns)
 

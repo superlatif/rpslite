@@ -85,4 +85,42 @@ class TrHeader extends Model
             get: fn () => $this->trs_type === 0 ? 'Tunai' : 'Kredit',
         );
     }
+
+    // Accessor untuk nilai penjualan (omzet)
+    protected function omzet(): Attribute
+    {
+        return Attribute::make(
+            get: fn () => $this->trr_type === 'SALE' ? $this->total_amount : 0,
+        );
+    }
+
+    // Accessor untuk nilai retur penjualan
+    protected function retur(): Attribute
+    {
+        return Attribute::make(
+            get: fn () => $this->trr_type === 'SALE_RET' ? $this->total_amount : 0,
+        );
+    }
+
+    // Accessor untuk HPP (harga pokok penjualan) yang sudah memperhitungkan arah transaksi
+    protected function hpp(): Attribute
+    {
+        return Attribute::make(
+            get: function (): float {
+                $hpp = $this->details->sum(
+                    fn (TrDetail $detail): float => (float) $detail->qty * (float) $detail->hpp_at_transaction,
+                );
+
+                return $this->trr_type === 'SALE_RET' ? -1 * $hpp : $hpp;
+            },
+        );
+    }
+
+    // Accessor untuk laba (omzet dikurangi retur dikurangi HPP)
+    protected function laba(): Attribute
+    {
+        return Attribute::make(
+            get: fn (): float => round((float) $this->omzet - (float) $this->retur - (float) $this->hpp, 2),
+        );
+    }
 }

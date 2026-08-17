@@ -1,49 +1,95 @@
 <!DOCTYPE html>
 <html lang="id">
+
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Struk {{ $header->trs_number }}</title>
     <style>
-        * { box-sizing: border-box; }
+        * {
+            box-sizing: border-box;
+        }
+
         body {
             margin: 0;
             font-family: 'Courier New', Courier, monospace;
-            font-size: 12px;
+            font-size: 10px;
             color: #000;
         }
+
         .receipt {
             width: 80mm;
             margin: 0 auto;
             padding: 4mm;
         }
-        .center { text-align: center; }
-        .right { text-align: right; }
-        .brand { font-weight: bold; font-size: 14px; }
-        .separator { border: 0; border-top: 1px dashed #000; margin: 3px 0; }
-        table { width: 100%; border-collapse: collapse; }
-        td { padding: 0; vertical-align: top; }
-        .dim { font-size: 11px; }
-        .toolbar { text-align: center; margin: 12px 0; }
+
+        .center {
+            text-align: center;
+        }
+
+        .right {
+            text-align: right;
+        }
+
+        .brand {
+            font-weight: bold;
+            font-size: 14px;
+        }
+
+        .separator {
+            border: 0;
+            border-top: 1px dashed #000;
+            margin: 3px 0;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        td {
+            padding: 0;
+            vertical-align: top;
+        }
+
+        .dim {
+            font-size: 11px;
+        }
+
+        .toolbar {
+            text-align: center;
+            margin: 12px 0;
+        }
+
         .toolbar button {
             font-family: inherit;
-            font-size: 14px;
+            font-size: 10px;
             padding: 8px 24px;
             cursor: pointer;
         }
+
         @media print {
-            .toolbar { display: none; }
-            @page { margin: 0; }
-            body { margin: 0; }
+            .toolbar {
+                display: none;
+            }
+
+            @page {
+                margin: 0;
+            }
+
+            body {
+                margin: 0;
+            }
         }
     </style>
 </head>
+
 <body>
     @php
         $customer = $header->customer;
         $details = $header->details;
         $isKredit = $header->trr_type === 'SALE' && (float) $header->paid_amount < (float) $header->total_amount;
-        $money = fn (float|int|string|null $value): string => 'Rp '.number_format((float) $value, 0, ',', '.');
+        $money = fn(float|int|string|null $value): string => 'Rp ' . number_format((float) $value, 0, ',', '.');
     @endphp
 
     <div class="toolbar">
@@ -87,7 +133,11 @@
                 <td class="right" style="width:15%"><strong>Qty</strong></td>
                 <td class="right" style="width:35%"><strong>Jumlah</strong></td>
             </tr>
-            <tr><td colspan="3"><hr class="separator"></td></tr>
+            <tr>
+                <td colspan="3">
+                    <hr class="separator">
+                </td>
+            </tr>
             @foreach ($details as $item)
                 <tr>
                     <td>{{ $item->stock?->descr }}</td>
@@ -100,7 +150,11 @@
                     <td></td>
                 </tr>
             @endforeach
-            <tr><td colspan="3"><hr class="separator"></td></tr>
+            <tr>
+                <td colspan="3">
+                    <hr class="separator">
+                </td>
+            </tr>
             <tr>
                 <td><strong>TOTAL</strong></td>
                 <td></td>
@@ -113,9 +167,10 @@
     </div>
 
     <script>
-        window.addEventListener('load', function () {
+        window.addEventListener('load', function() {
             window.print();
         });
     </script>
 </body>
+
 </html>

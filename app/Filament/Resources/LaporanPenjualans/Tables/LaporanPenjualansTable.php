@@ -1,25 +1,22 @@
 <?php
 
-namespace App\Filament\Resources\LaporanPembelians\Tables;
+namespace App\Filament\Resources\LaporanPenjualans\Tables;
 
-use App\Filament\Actions\SafeDeleteBulkAction;
 use App\Models\TrHeader;
 use Carbon\Carbon;
 use Filament\Actions\Action;
-use Filament\Actions\ActionGroup;
-use Filament\Actions\BulkActionGroup;
 use Filament\Forms\Components\DatePicker;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\Summarizers\Summarizer;
 use Filament\Tables\Columns\TextColumn;
-use Filament\Tables\Enums\RecordActionsPosition;
 use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder as EloquentBuilder;
 use Illuminate\Database\Query\Builder as QueryBuilder;
+use Illuminate\Support\Facades\DB;
 
-class LaporanPembeliansTable
+class LaporanPenjualansTable
 {
     public static function configure(Table $table): Table
     {
@@ -36,38 +33,64 @@ class LaporanPembeliansTable
                 TextColumn::make('jenis_bayar')
                     ->label('Jenis Bayar'),
 
-                TextColumn::make('debet')
-                    ->label('Pembelian')
+                TextColumn::make('customer.descr')
+                    ->label('Customer'),
+
+                TextColumn::make('omzet')
+                    ->label('Penjualan')
                     ->alignEnd()
                     ->numeric()
                     ->money('IDR')
-                    ->getStateUsing(fn (TrHeader $record): float => $record->debet)
+                    ->getStateUsing(fn (TrHeader $record): float => $record->omzet)
                     ->summarize(
                         Summarizer::make()
                             ->label('Total')
-                            ->using(fn (QueryBuilder $query): float => $query->clone()
-                                ->where('trs_number', 'LIKE', 'PB%')
+                            ->using(fn (QueryBuilder $query): float => (float) $query->clone()
+                                ->where('trr_type', 'SALE')
                                 ->sum('total_amount'))
                             ->money('IDR')
                     ),
 
-                TextColumn::make('kredit')
+                TextColumn::make('retur')
                     ->label('Retur')
                     ->alignEnd()
                     ->numeric()
                     ->money('IDR')
-                    ->getStateUsing(fn (TrHeader $record): float => $record->kredit)
+                    ->getStateUsing(fn (TrHeader $record): float => $record->retur)
                     ->summarize(
                         Summarizer::make()
                             ->label('Total')
-                            ->using(fn (QueryBuilder $query): float => $query->clone()
-                                ->where('trs_number', 'LIKE', 'RPB%')
+                            ->using(fn (QueryBuilder $query): float => (float) $query->clone()
+                                ->where('trr_type', 'SALE_RET')
                                 ->sum('total_amount'))
                             ->money('IDR')
                     ),
 
-                TextColumn::make('supplier.descr')
-                    ->label('Supplier'),
+                TextColumn::make('hpp')
+                    ->label('HPP')
+                    ->alignEnd()
+                    ->numeric()
+                    ->money('IDR')
+                    ->getStateUsing(fn (TrHeader $record): float => $record->hpp)
+                    ->summarize(
+                        Summarizer::make()
+                            ->label('Total')
+                            ->using(fn (QueryBuilder $query): float => self::summarizeHpp($query))
+                            ->money('IDR')
+                    ),
+
+                TextColumn::make('laba')
+                    ->label('Laba')
+                    ->alignEnd()
+                    ->numeric()
+                    ->money('IDR')
+                    ->getStateUsing(fn (TrHeader $record): float => $record->laba)
+                    ->summarize(
+                        Summarizer::make()
+                            ->label('Total')
+                            ->using(fn (QueryBuilder $query): float => self::summarizeLaba($query))
+                            ->money('IDR')
+                    ),
             ])
             ->filters([
                 SelectFilter::make('trs_type')
@@ -82,9 +105,9 @@ class LaporanPembeliansTable
                             fn (EloquentBuilder $query) => $query->where('trs_type', (int) $data['value'])
                         );
                     }),
-                SelectFilter::make('supplier_id')
-                    ->label('Supplier')
-                    ->relationship('supplier', 'descr')
+                SelectFilter::make('customer_id')
+                    ->label('Customer')
+                    ->relationship('customer', 'descr')
                     ->searchable()
                     ->preload(),
                 Filter::make('trs_date')
@@ -110,7 +133,6 @@ class LaporanPembeliansTable
                             );
                     })
                     ->indicateUsing(function (array $data): ?string {
-                        // Jika tidak ada data yang dipilih, kembalikan null (tidak ada indikator)
                         if (! filled($data['date_from']) && ! filled($data['date_until'])) {
                             return null;
                         }
@@ -124,19 +146,9 @@ class LaporanPembeliansTable
                             $indicators[] = 'Sampai: '.Carbon::parse($data['date_until'])->format('d M Y');
                         }
 
-                        // Gabungkan indikator menjadi satu string
                         return implode(' - ', $indicators);
                     }),
             ])->persistFiltersInSession()
-            ->recordActions([
-                ActionGroup::make([
-                    Action::make('laporanPembelian')
-                        ->label('Detail Pembelian')
-                        ->icon(Heroicon::OutlinedDocumentText)
-                        ->url(fn (TrHeader $record): string => route('filament.admin.pembelian.laporan', $record))
-                        ->openUrlInNewTab(),
-                ]),
-            ], position: RecordActionsPosition::BeforeColumns)
             ->headerActions([
                 Action::make('cetak')
                     ->label('Cetak')
@@ -147,29 +159,47 @@ class LaporanPembeliansTable
                     ->label('Export Excel')
                     ->icon(Heroicon::OutlinedArrowDownTray)
                     ->url(fn ($livewire): string => self::reportUrl($livewire, 'export')),
-            ])
-            ->toolbarActions([
-                BulkActionGroup::make([
-                    SafeDeleteBulkAction::make(),
-                ]),
             ]);
     }
 
     protected static function reportUrl(object $livewire, string $type): string
     {
         $trsDate = $livewire->getTableFilterState('trs_date') ?? [];
-        $supplierState = $livewire->getTableFilterState('supplier_id') ?? [];
+        $customerState = $livewire->getTableFilterState('customer_id') ?? [];
         $trsTypeState = $livewire->getTableFilterState('trs_type') ?? [];
 
         $params = [
             'date_from' => (string) ($trsDate['date_from'] ?? ''),
             'date_until' => (string) ($trsDate['date_until'] ?? ''),
-            'supplier_id' => (string) ($supplierState['value'] ?? ''),
+            'customer_id' => (string) ($customerState['value'] ?? ''),
             'trs_type' => (string) ($trsTypeState['value'] ?? ''),
         ];
 
         return $type === 'cetak'
-            ? route('filament.admin.laporan-pembelian.cetak', $params)
-            : route('filament.admin.laporan-pembelian.export', $params);
+            ? route('filament.admin.laporan-penjualan.cetak', $params)
+            : route('filament.admin.laporan-penjualan.export', $params);
+    }
+
+    protected static function summarizeHpp(QueryBuilder $query): float
+    {
+        $saleHpp = (float) $query->clone()
+            ->where('trr_type', 'SALE')
+            ->join('tr_details', 'tr_details.tr_header_id', '=', 'tr_headers.id')
+            ->sum(DB::raw('tr_details.qty * tr_details.hpp_at_transaction'));
+
+        $returnHpp = (float) $query->clone()
+            ->where('trr_type', 'SALE_RET')
+            ->join('tr_details', 'tr_details.tr_header_id', '=', 'tr_headers.id')
+            ->sum(DB::raw('tr_details.qty * tr_details.hpp_at_transaction'));
+
+        return $saleHpp - $returnHpp;
+    }
+
+    protected static function summarizeLaba(QueryBuilder $query): float
+    {
+        $omzet = (float) $query->clone()->where('trr_type', 'SALE')->sum('total_amount');
+        $retur = (float) $query->clone()->where('trr_type', 'SALE_RET')->sum('total_amount');
+
+        return $omzet - $retur - self::summarizeHpp($query);
     }
 }

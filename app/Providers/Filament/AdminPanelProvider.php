@@ -4,9 +4,9 @@ namespace App\Providers\Filament;
 
 use App\Filament\Pages\Tables\LaporanKartuStokTable;
 use App\Filament\Pages\Tables\LaporanNilaiPersediaanTable;
-use App\Filament\Pages\Tables\LaporanPenjualanTable;
 use App\Models\TbStock;
 use App\Models\TrHeader;
+use App\Services\ThermalPrinterService;
 use Carbon\Carbon;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
@@ -63,12 +63,36 @@ class AdminPanelProvider extends PanelProvider
                 DispatchServingFilamentEvent::class,
             ])
             ->authenticatedRoutes(function (): void {
-                Route::get('/penjualan/{trHeader}/struk', function (TrHeader $trHeader) {
+                Route::get('/penjualan/{trHeader}/struk', function (TrHeader $trHeader, ThermalPrinterService $printer) {
                     abort_unless($trHeader->trr_type === 'SALE', 404);
 
                     $trHeader->load('customer', 'details.stock');
 
-                    return view('struk.penjualan', ['header' => $trHeader]);
+                    $data = [
+                        'shop_name' => config('app.name', 'RPS Lite'),
+                        'number' => $trHeader->trs_number,
+                        'date' => $trHeader->trs_date->format('d/m/Y'),
+                        'customer_name' => $trHeader->customer?->descr ?? 'Umum',
+                        'customer_address' => $trHeader->customer?->alamat ?? '',
+                        'customer_phone' => $trHeader->customer?->phone ?? '',
+                        'payment_type' => (float) $trHeader->paid_amount < (float) $trHeader->total_amount ? 'KREDIT' : 'TUNAI',
+                        'is_credit' => (float) $trHeader->paid_amount < (float) $trHeader->total_amount,
+                        'remaining' => (float) $trHeader->remaining_amount,
+                        'total' => (float) $trHeader->total_amount,
+                        'items' => $trHeader->details->map(function ($item) {
+                            return [
+                                'name' => $item->stock?->descr ?? '-',
+                                'qty' => (float) $item->qty,
+                                'unit_price' => (float) $item->unit_price,
+                                'subtotal' => (float) $item->subtotal,
+                            ];
+                        })->toArray(),
+                    ];
+
+                    $printer->printReceipt($data);
+
+                    return response('Struk dikirim ke printer', 200)
+                        ->header('Content-Type', 'text/plain');
                 })->name('penjualan.struk');
 
                 Route::get('/laporan-kartu-stok/cetak', function (Request $request) {
@@ -197,56 +221,138 @@ class AdminPanelProvider extends PanelProvider
                 Route::get('/laporan-penjualan/cetak', function (Request $request) {
                     $dateFrom = (string) $request->query('date_from', '');
                     $dateUntil = (string) $request->query('date_until', '');
+                    $customerId = (string) $request->query('customer_id', '');
+                    $trsType = (string) $request->query('trs_type', '');
 
-                    abort_if(blank($dateFrom) || blank($dateUntil), 404);
-
-                    $rows = LaporanPenjualanTable::buildRows(
-                        $dateFrom,
-                        $dateUntil,
-                        (string) $request->query('customer_id', ''),
-                        (string) $request->query('group_by', 'barang'),
-                    );
+                    $headers = TrHeader::query()
+                        ->where(function ($q) {
+                            $q->where('trr_type', 'SALE')
+                                ->orWhere('trr_type', 'SALE_RET');
+                        })
+                        ->when(
+                            filled($dateFrom),
+                            fn ($q) => $q->whereDate('trs_date', '>=', $dateFrom)
+                        )
+                        ->when(
+                            filled($dateUntil),
+                            fn ($q) => $q->whereDate('trs_date', '<=', $dateUntil)
+                        )
+                        ->when(
+                            filled($customerId),
+                            fn ($q) => $q->where('customer_id', $customerId)
+                        )
+                        ->when(
+                            filled($trsType) && $trsType !== '',
+                            fn ($q) => $q->where('trs_type', (int) $trsType)
+                        )
+                        ->with('customer')
+                        ->with('details')
+                        ->orderBy('trs_date')
+                        ->orderBy('trs_number')
+                        ->get();
 
                     return view('laporan.penjualan-ringkas', [
                         'dateFrom' => $dateFrom,
                         'dateUntil' => $dateUntil,
-                        'groupBy' => (string) $request->query('group_by', 'barang'),
-                        'rows' => $rows,
+                        'customerId' => $customerId,
+                        'trsType' => $trsType,
+                        'headers' => $headers,
                     ]);
                 })->name('laporan-penjualan.cetak');
 
                 Route::get('/laporan-penjualan/export', function (Request $request) {
                     $dateFrom = (string) $request->query('date_from', '');
                     $dateUntil = (string) $request->query('date_until', '');
+                    $customerId = (string) $request->query('customer_id', '');
+                    $trsType = (string) $request->query('trs_type', '');
 
-                    abort_if(blank($dateFrom) || blank($dateUntil), 404);
+                    $headers = TrHeader::query()
+                        ->where(function ($q) {
+                            $q->where('trr_type', 'SALE')
+                                ->orWhere('trr_type', 'SALE_RET');
+                        })
+                        ->when(
+                            filled($dateFrom),
+                            fn ($q) => $q->whereDate('trs_date', '>=', $dateFrom)
+                        )
+                        ->when(
+                            filled($dateUntil),
+                            fn ($q) => $q->whereDate('trs_date', '<=', $dateUntil)
+                        )
+                        ->when(
+                            filled($customerId),
+                            fn ($q) => $q->where('customer_id', $customerId)
+                        )
+                        ->when(
+                            filled($trsType) && $trsType !== '',
+                            fn ($q) => $q->where('trs_type', (int) $trsType)
+                        )
+                        ->with('customer')
+                        ->with('details')
+                        ->orderBy('trs_date')
+                        ->orderBy('trs_number')
+                        ->get();
 
-                    $rows = LaporanPenjualanTable::buildRows(
-                        $dateFrom,
-                        $dateUntil,
-                        (string) $request->query('customer_id', ''),
-                        (string) $request->query('group_by', 'barang'),
-                    );
+                    $filename = 'laporan-penjualan'.($dateFrom ? '-'.$dateFrom : '').($dateUntil ? '-'.$dateUntil : '').'.csv';
 
-                    $filename = 'laporan-penjualan-'.$dateFrom.'-'.$dateUntil.'.csv';
-
-                    $callback = function () use ($rows): void {
+                    $callback = function () use ($headers, $dateFrom, $dateUntil): void {
                         $handle = fopen('php://output', 'w');
 
                         fwrite($handle, "\xEF\xBB\xBF");
 
-                        fputcsv($handle, ['Kode', 'Nama Barang / Customer', 'Qty', 'Omzet', 'HPP', 'Laba']);
+                        fputcsv($handle, ['LAPORAN PENJUALAN']);
 
-                        foreach ($rows as $row) {
+                        $periode = filled($dateFrom) || filled($dateUntil)
+                            ? ($dateFrom ?: '-').' s/d '.($dateUntil ?: '-')
+                            : 'Semua Tanggal';
+
+                        fputcsv($handle, ['Periode', $periode]);
+                        fputcsv($handle, []);
+                        fputcsv($handle, ['No. Transaksi', 'Tanggal', 'Tipe', 'Customer', 'Jenis Bayar', 'Penjualan', 'Retur', 'HPP', 'Laba']);
+
+                        $totalOmzet = 0.0;
+                        $totalRetur = 0.0;
+                        $totalHpp = 0.0;
+                        $totalLaba = 0.0;
+
+                        foreach ($headers as $header) {
+                            $omzet = $header->trr_type === 'SALE' ? (float) $header->total_amount : 0.0;
+                            $retur = $header->trr_type === 'SALE_RET' ? (float) $header->total_amount : 0.0;
+                            $hpp = $header->details->sum(
+                                fn ($detail): float => (float) $detail->qty * (float) $detail->hpp_at_transaction
+                            ) * ($header->trr_type === 'SALE_RET' ? -1 : 1);
+                            $laba = $omzet - $retur - $hpp;
+
+                            $totalOmzet += $omzet;
+                            $totalRetur += $retur;
+                            $totalHpp += $hpp;
+                            $totalLaba += $laba;
+
                             fputcsv($handle, [
-                                (string) ($row['kode'] ?? ''),
-                                (string) ($row['nama'] ?? ''),
-                                (string) $row['qty'],
-                                number_format((float) $row['omzet'], 2, ',', '.'),
-                                number_format((float) $row['hpp'], 2, ',', '.'),
-                                number_format((float) $row['laba'], 2, ',', '.'),
+                                $header->trs_number,
+                                $header->trs_date->format('d M Y'),
+                                $header->trr_type === 'SALE' ? 'Penjualan' : 'Retur Penjualan',
+                                $header->customer?->descr ?? '',
+                                (int) $header->trs_type === 1 ? 'Kredit' : 'Tunai',
+                                $omzet > 0 ? number_format($omzet, 2, ',', '.') : '',
+                                $retur > 0 ? number_format($retur, 2, ',', '.') : '',
+                                number_format($hpp, 2, ',', '.'),
+                                number_format($laba, 2, ',', '.'),
                             ]);
                         }
+
+                        fputcsv($handle, []);
+                        fputcsv($handle, [
+                            'TOTAL',
+                            '',
+                            '',
+                            '',
+                            '',
+                            number_format($totalOmzet, 2, ',', '.'),
+                            number_format($totalRetur, 2, ',', '.'),
+                            number_format($totalHpp, 2, ',', '.'),
+                            number_format($totalLaba, 2, ',', '.'),
+                        ]);
 
                         fclose($handle);
                     };
@@ -576,6 +682,136 @@ class AdminPanelProvider extends PanelProvider
                         'Content-Type' => 'text/csv; charset=UTF-8',
                     ]);
                 })->name('retur-pembelian.export');
+
+                Route::get('/laporan-pembelian/cetak', function (Request $request) {
+                    $dateFrom = (string) $request->query('date_from', '');
+                    $dateUntil = (string) $request->query('date_until', '');
+                    $supplierId = (string) $request->query('supplier_id', '');
+                    $trsType = (string) $request->query('trs_type', '');
+
+                    $headers = TrHeader::query()
+                        ->where(function ($q) {
+                            $q->where('trr_type', 'PURCHASE')
+                                ->orWhere('trr_type', 'PURCHASE_RET');
+                        })
+                        ->when(
+                            filled($dateFrom),
+                            fn ($q) => $q->whereDate('trs_date', '>=', $dateFrom)
+                        )
+                        ->when(
+                            filled($dateUntil),
+                            fn ($q) => $q->whereDate('trs_date', '<=', $dateUntil)
+                        )
+                        ->when(
+                            filled($supplierId),
+                            fn ($q) => $q->where('supplier_id', $supplierId)
+                        )
+                        ->when(
+                            filled($trsType) && $trsType !== '',
+                            fn ($q) => $q->where('trs_type', (int) $trsType)
+                        )
+                        ->with('supplier')
+                        ->orderBy('trs_date')
+                        ->orderBy('trs_number')
+                        ->get();
+
+                    return view('laporan.pembelian-ringkas', [
+                        'dateFrom' => $dateFrom,
+                        'dateUntil' => $dateUntil,
+                        'supplierId' => $supplierId,
+                        'trsType' => $trsType,
+                        'headers' => $headers,
+                    ]);
+                })->name('laporan-pembelian.cetak');
+
+                Route::get('/laporan-pembelian/export', function (Request $request) {
+                    $dateFrom = (string) $request->query('date_from', '');
+                    $dateUntil = (string) $request->query('date_until', '');
+                    $supplierId = (string) $request->query('supplier_id', '');
+                    $trsType = (string) $request->query('trs_type', '');
+
+                    $headers = TrHeader::query()
+                        ->where(function ($q) {
+                            $q->where('trr_type', 'PURCHASE')
+                                ->orWhere('trr_type', 'PURCHASE_RET');
+                        })
+                        ->when(
+                            filled($dateFrom),
+                            fn ($q) => $q->whereDate('trs_date', '>=', $dateFrom)
+                        )
+                        ->when(
+                            filled($dateUntil),
+                            fn ($q) => $q->whereDate('trs_date', '<=', $dateUntil)
+                        )
+                        ->when(
+                            filled($supplierId),
+                            fn ($q) => $q->where('supplier_id', $supplierId)
+                        )
+                        ->when(
+                            filled($trsType) && $trsType !== '',
+                            fn ($q) => $q->where('trs_type', (int) $trsType)
+                        )
+                        ->with('supplier')
+                        ->orderBy('trs_date')
+                        ->orderBy('trs_number')
+                        ->get();
+
+                    $filename = 'laporan-pembelian'.($dateFrom ? '-'.$dateFrom : '').($dateUntil ? '-'.$dateUntil : '').'.csv';
+
+                    $callback = function () use ($headers, $dateFrom, $dateUntil): void {
+                        $handle = fopen('php://output', 'w');
+
+                        fwrite($handle, "\xEF\xBB\xBF");
+
+                        fputcsv($handle, ['LAPORAN PEMBELIAN']);
+
+                        $periode = filled($dateFrom) || filled($dateUntil)
+                            ? ($dateFrom ?: '-').' s/d '.($dateUntil ?: '-')
+                            : 'Semua Tanggal';
+
+                        fputcsv($handle, ['Periode', $periode]);
+                        fputcsv($handle, []);
+                        fputcsv($handle, ['No. Transaksi', 'Tanggal', 'Tipe', 'Supplier', 'Jenis Bayar', 'Pembelian', 'Retur']);
+
+                        $totalPembelian = 0.0;
+                        $totalRetur = 0.0;
+
+                        foreach ($headers as $header) {
+                            $debet = str_starts_with($header->trs_number, 'PB') ? (float) $header->total_amount : 0;
+                            $kredit = str_starts_with($header->trs_number, 'RPB') ? (float) $header->total_amount : 0;
+
+                            $totalPembelian += $debet;
+                            $totalRetur += $kredit;
+
+                            fputcsv($handle, [
+                                $header->trs_number,
+                                $header->trs_date->format('d M Y'),
+                                $header->trr_type === 'PURCHASE' ? 'Pembelian' : 'Retur Pembelian',
+                                $header->supplier?->descr ?? '',
+                                (int) $header->trs_type === 1 ? 'Kredit' : 'Tunai',
+                                $debet > 0 ? number_format($debet, 2, ',', '.') : '',
+                                $kredit > 0 ? number_format($kredit, 2, ',', '.') : '',
+                            ]);
+                        }
+
+                        fputcsv($handle, []);
+                        fputcsv($handle, [
+                            'TOTAL',
+                            '',
+                            '',
+                            '',
+                            '',
+                            number_format($totalPembelian, 2, ',', '.'),
+                            number_format($totalRetur, 2, ',', '.'),
+                        ]);
+
+                        fclose($handle);
+                    };
+
+                    return response()->streamDownload($callback, $filename, [
+                        'Content-Type' => 'text/csv; charset=UTF-8',
+                    ]);
+                })->name('laporan-pembelian.export');
             })
             ->authMiddleware([
                 Authenticate::class,

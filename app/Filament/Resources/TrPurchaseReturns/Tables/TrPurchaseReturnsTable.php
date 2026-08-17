@@ -115,7 +115,7 @@ class TrPurchaseReturnsTable
             ->recordActions([
                 ActionGroup::make([
                     Action::make('laporanReturPembelian')
-                        ->label('Laporan Retur')
+                        ->label('Detail Retur')
                         ->icon(Heroicon::OutlinedDocumentText)
                         ->url(fn (TrHeader $record): string => route('filament.admin.retur-pembelian.laporan', $record))
                         ->openUrlInNewTab(),
