@@ -59,19 +59,24 @@ it('renders the sale return report with customer, source invoice, details and to
         'subtotal' => 16000,
     ]);
 
-    $this->get(route('filament.admin.retur-penjualan.laporan', $return))
-        ->assertOk()
-        ->assertSee('LAPORAN RETUR PENJUALAN')
-        ->assertSee('RPJ-000001')
-        ->assertSee('Budi Santoso')
-        ->assertSee('Jl. Merdeka No. 10')
-        ->assertSee('081234567890')
-        ->assertSee('PJ-000001')
-        ->assertSee('BRG-001')
-        ->assertSee('Bollpoin')
-        ->assertSee('TOTAL')
-        ->assertSee('Cetak')
-        ->assertSee('Export Excel');
+    $response = $this->get(route('filament.admin.retur-penjualan.laporan', $return));
+
+    $response->assertOk();
+
+    expect($response->headers->get('content-type'))->toContain('application/pdf');
+
+    $html = view('laporan.retur-penjualan', ['header' => $return])->render();
+
+    expect($html)->toContain('LAPORAN RETUR PENJUALAN')
+        ->and($html)->toContain('RPJ-000001')
+        ->and($html)->toContain('Budi Santoso')
+        ->and($html)->toContain('Jl. Merdeka No. 10')
+        ->and($html)->toContain('081234567890')
+        ->and($html)->toContain('PJ-000001')
+        ->and($html)->toContain('BRG-001')
+        ->and($html)->toContain('Bollpoin')
+        ->and($html)->toContain('TOTAL')
+        ->and($html)->not->toContain('Export Excel');
 });
 
 it('prints the sale return report from the cetak route', function () {
@@ -91,13 +96,20 @@ it('prints the sale return report from the cetak route', function () {
         'subtotal' => 16000,
     ]);
 
-    $this->get(route('filament.admin.retur-penjualan.cetak', $return))
-        ->assertOk()
-        ->assertSee('LAPORAN RETUR PENJUALAN')
-        ->assertSee('RPJ-000001')
-        ->assertSee('Bollpoin')
-        ->assertSee('TOTAL')
-        ->assertDontSee('Export Excel');
+    $response = $this->get(route('filament.admin.retur-penjualan.cetak', $return));
+
+    $response->assertOk();
+
+    expect($response->headers->get('content-type'))->toContain('application/pdf')
+        ->and($response->getContent())->toStartWith('%PDF');
+
+    $html = view('laporan.retur-penjualan', ['header' => $return])->render();
+
+    expect($html)->toContain('LAPORAN RETUR PENJUALAN')
+        ->and($html)->toContain('RPJ-000001')
+        ->and($html)->toContain('Bollpoin')
+        ->and($html)->toContain('TOTAL')
+        ->and($html)->not->toContain('Export Excel');
 });
 
 it('exports the sale return report as a CSV with BOM', function () {

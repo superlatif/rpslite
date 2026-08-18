@@ -22,7 +22,7 @@ class LaporanPenjualanResource extends Resource
 
     protected static ?string $recordTitleAttribute = 'Laporan Penjualan';
 
-    protected static string|UnitEnum|null $navigationGroup = 'Laporan';
+    protected static string|UnitEnum|null $navigationGroup = 'Penjualan';
 
     protected static ?int $navigationSort = 10;
 

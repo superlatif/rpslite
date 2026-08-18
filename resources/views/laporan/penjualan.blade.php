@@ -12,20 +12,7 @@
             font-size: 12px;
             color: #000;
         }
-        .toolbar { text-align: center; margin: 12px 0; }
-        .toolbar .btn {
-            display: inline-block;
-            font-family: inherit;
-            font-size: 14px;
-            padding: 8px 24px;
-            margin: 0 4px;
-            border: 1px solid #000;
-            background: #fff;
-            color: #000;
-            text-decoration: none;
-            cursor: pointer;
-        }
-        .report { max-width: 210mm; margin: 0 auto; padding: 10mm; }
+        .report { margin: 0 auto; }
         .center { text-align: center; }
         .right { text-align: right; }
         .brand { font-weight: bold; font-size: 16px; }
@@ -38,10 +25,6 @@
         table.info td { border: 0; padding: 1px 5px; }
         table.info td.label { width: 90px; }
         .total-row td { font-weight: bold; }
-        @media print {
-            .toolbar { display: none; }
-            body { margin: 0; }
-        }
     </style>
 </head>
 <body>
@@ -61,13 +44,6 @@
         $totalHpp = $details->sum(fn ($row): float => $row->hpp);
         $totalLaba = $details->sum(fn ($row): float => $row->laba);
     @endphp
-
-    @if (! $autoPrint)
-        <div class="toolbar">
-            <a class="btn" href="{{ route('filament.admin.penjualan.cetak', $header) }}" target="_blank">Cetak</a>
-            <a class="btn" href="{{ route('filament.admin.penjualan.export', $header) }}">Export Excel</a>
-        </div>
-    @endif
 
     <div class="report">
         <div class="center brand">{{ config('app.name') }}</div>
@@ -131,13 +107,5 @@
             </tbody>
         </table>
     </div>
-
-    @if ($autoPrint)
-        <script>
-            window.addEventListener('load', function () {
-                window.print();
-            });
-        </script>
-    @endif
 </body>
 </html>

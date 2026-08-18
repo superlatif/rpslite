@@ -29,7 +29,7 @@ class LaporanPiutang extends Page implements HasTable
 
     protected static ?string $title = 'Laporan Piutang (Aging)';
 
-    protected static string|UnitEnum|null $navigationGroup = 'Laporan';
+    protected static string|UnitEnum|null $navigationGroup = 'Penjualan';
 
     protected static ?int $navigationSort = 11;
 

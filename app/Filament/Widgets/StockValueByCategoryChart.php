@@ -14,6 +14,7 @@ class StockValueByCategoryChart extends ChartWidget
     protected function getData(): array
     {
         $rows = TbStock::query()
+            ->barang()
             ->leftJoin('tb_cates', 'tb_stocks.tb_cate_id', '=', 'tb_cates.id')
             ->selectRaw('COALESCE(tb_cates.descr, \'Tanpa Kategori\') as category, SUM(tb_stocks.stock * tb_stocks.harga_pokok) as value')
             ->groupBy('category')

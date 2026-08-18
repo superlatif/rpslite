@@ -22,7 +22,7 @@ class TrOpnameResource extends Resource
 
     protected static ?string $recordTitleAttribute = 'trs_number';
 
-    protected static ?int $navigationSort = 9;
+    protected static ?int $navigationSort = 4;
 
     protected static ?string $modelLabel = 'Stok Opname';
 
@@ -30,7 +30,7 @@ class TrOpnameResource extends Resource
 
     protected static ?string $navigationLabel = 'Stok Opname';
 
-    protected static string|UnitEnum|null $navigationGroup = 'Transaksi';
+    protected static string|UnitEnum|null $navigationGroup = 'Inventory';
 
     public static function getEloquentQuery(): Builder
     {

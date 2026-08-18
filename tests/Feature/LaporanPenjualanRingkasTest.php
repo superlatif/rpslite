@@ -6,6 +6,7 @@ use App\Models\TbStock;
 use App\Models\TrDetail;
 use App\Models\TrHeader;
 use App\Models\User;
+use App\Services\PdfReportService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
 
@@ -69,21 +70,34 @@ it('prints the sales summary from the cetak route with omzet hpp and laba', func
         'subtotal' => 16000,
     ]);
 
-    $this->get(route('filament.admin.laporan-penjualan.cetak', [
+    $response = $this->get(route('filament.admin.laporan-penjualan.cetak', [
         'date_from' => '2026-07-01',
         'date_until' => '2026-07-31',
-    ]))
-        ->assertOk()
-        ->assertSee('LAPORAN PENJUALAN')
-        ->assertSee('PJ-000001')
-        ->assertSee('Budi Santoso')
-        ->assertSee('Penjualan')
-        ->assertSee('HPP')
-        ->assertSee('Laba')
-        ->assertSee('16.000,00')
-        ->assertSee('10.000,00')
-        ->assertSee('6.000,00')
-        ->assertSee('TOTAL');
+    ]));
+
+    $response->assertOk();
+
+    expect($response->headers->get('content-type'))->toContain('application/pdf')
+        ->and($response->getContent())->toStartWith('%PDF');
+
+    $html = view('laporan.penjualan-ringkas', [
+        'dateFrom' => '2026-07-01',
+        'dateUntil' => '2026-07-31',
+        'customerId' => '',
+        'trsType' => '',
+        'headers' => PdfReportService::penjualanRingkasHeaders('2026-07-01', '2026-07-31'),
+    ])->render();
+
+    expect($html)->toContain('LAPORAN PENJUALAN')
+        ->and($html)->toContain('PJ-000001')
+        ->and($html)->toContain('Budi Santoso')
+        ->and($html)->toContain('Penjualan')
+        ->and($html)->toContain('HPP')
+        ->and($html)->toContain('Laba')
+        ->and($html)->toContain('16.000,00')
+        ->and($html)->toContain('10.000,00')
+        ->and($html)->toContain('6.000,00')
+        ->and($html)->toContain('TOTAL');
 });
 
 it('prints all sales when no dates are provided', function () {
@@ -105,11 +119,12 @@ it('prints all sales when no dates are provided', function () {
         'subtotal' => 16000,
     ]);
 
-    $this->get(route('filament.admin.laporan-penjualan.cetak'))
-        ->assertOk()
-        ->assertSee('LAPORAN PENJUALAN')
-        ->assertSee('PJ-000001')
-        ->assertSee('16.000,00');
+    $response = $this->get(route('filament.admin.laporan-penjualan.cetak'));
+
+    $response->assertOk();
+
+    expect($response->headers->get('content-type'))->toContain('application/pdf')
+        ->and($response->getContent())->toStartWith('%PDF');
 });
 
 it('exports the sales summary as a CSV with BOM', function () {
@@ -217,14 +232,26 @@ it('shows omzet retur hpp and laba totals across sales and returns', function ()
         'subtotal' => 8000,
     ]);
 
-    $this->get(route('filament.admin.laporan-penjualan.cetak', [
+    $response = $this->get(route('filament.admin.laporan-penjualan.cetak', [
         'date_from' => '2026-07-01',
         'date_until' => '2026-07-31',
-    ]))
-        ->assertOk()
-        ->assertSee('PJ-000001')
-        ->assertSee('RJ-000001')
-        ->assertSee('Retur Penjualan')
-        ->assertSee('6.000,00')
-        ->assertSee('3.000,00');
+    ]));
+
+    $response->assertOk();
+
+    expect($response->headers->get('content-type'))->toContain('application/pdf');
+
+    $html = view('laporan.penjualan-ringkas', [
+        'dateFrom' => '2026-07-01',
+        'dateUntil' => '2026-07-31',
+        'customerId' => '',
+        'trsType' => '',
+        'headers' => PdfReportService::penjualanRingkasHeaders('2026-07-01', '2026-07-31'),
+    ])->render();
+
+    expect($html)->toContain('PJ-000001')
+        ->and($html)->toContain('RJ-000001')
+        ->and($html)->toContain('Retur Penjualan')
+        ->and($html)->toContain('6.000,00')
+        ->and($html)->toContain('3.000,00');
 });

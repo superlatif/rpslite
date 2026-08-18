@@ -22,7 +22,7 @@ class TrPurchaseResource extends Resource
 
     protected static ?string $recordTitleAttribute = 'trs_number';
 
-    protected static ?int $navigationSort = 1;
+    protected static ?int $navigationSort = 3;
 
     protected static ?string $modelLabel = 'Pembelian';
 
@@ -30,16 +30,11 @@ class TrPurchaseResource extends Resource
 
     protected static ?string $navigationLabel = 'Pembelian';
 
-    protected static string|UnitEnum|null $navigationGroup = 'Transaksi';
+    protected static string|UnitEnum|null $navigationGroup = 'Pembelian';
 
     public static function getEloquentQuery(): Builder
     {
         return parent::getEloquentQuery()->where('trr_type', 'PURCHASE');
-    }
-
-    public static function getNavigationBadge(): ?string
-    {
-        return static::getModel()::query()->where('trr_type', 'PURCHASE')->count();
     }
 
     public static function form(Schema $schema): Schema

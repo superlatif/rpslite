@@ -74,10 +74,13 @@ class ListTrPurchases extends ListRecords
                     ->lockForUpdate()
                     ->findOrFail($row['stock_id']);
 
-                $stock->increment(
-                    'stock',
-                    (float) $row['qty']
-                );
+                if (! $stock->is_jasa) {
+                    $stock->increment(
+                        'stock',
+                        (float) $row['qty']
+                    );
+                }
+
                 $stock->recalculateHpp();
             }
 

@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -13,11 +14,12 @@ class TbStock extends Model
     use HasFactory;
 
     protected $fillable = ['code', 'descr', 'satuan', 'harga_beli',
-        'harga_jual', 'harga_pokok', 'tb_cate_id', 'gambar'];
+        'harga_jual', 'harga_pokok', 'tb_cate_id', 'gambar', 'is_jasa'];
 
     protected $casts = ['harga_beli' => 'decimal:2',
         'harga_jual' => 'decimal:2',
-        'harga_pokok' => 'decimal:2'];
+        'harga_pokok' => 'decimal:2',
+        'is_jasa' => 'boolean'];
 
     protected static function booted(): void
     {
@@ -62,5 +64,15 @@ class TbStock extends Model
     public function cate(): BelongsTo
     {
         return $this->belongsTo(TbCate::class, 'tb_cate_id');
+    }
+
+    public function scopeBarang(Builder $query): Builder
+    {
+        return $query->where('is_jasa', false);
+    }
+
+    public function scopeJasa(Builder $query): Builder
+    {
+        return $query->where('is_jasa', true);
     }
 }

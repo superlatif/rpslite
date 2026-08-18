@@ -50,20 +50,24 @@ it('renders the purchase report with supplier info, details and totals', functio
         'subtotal' => 16000,
     ]);
 
-    $this->get(route('filament.admin.pembelian.laporan', $purchase))
-        ->assertOk()
-        ->assertSee('LAPORAN PEMBELIAN')
-        ->assertSee('PB-000001')
-        ->assertSee('PT Maju Jaya')
-        ->assertSee('Jl. Industri No. 5')
-        ->assertSee('0215551234')
-        ->assertSee('BRG-001')
-        ->assertSee('Bollpoin')
-        ->assertSee('TOTAL')
-        ->assertSee('Cetak')
-        ->assertSee('Export Excel')
-        ->assertDontSee('HPP')
-        ->assertDontSee('Laba');
+    $response = $this->get(route('filament.admin.pembelian.laporan', $purchase));
+
+    $response->assertOk();
+
+    expect($response->headers->get('content-type'))->toContain('application/pdf');
+
+    $html = view('laporan.pembelian', ['header' => $purchase])->render();
+
+    expect($html)->toContain('LAPORAN PEMBELIAN')
+        ->and($html)->toContain('PB-000001')
+        ->and($html)->toContain('PT Maju Jaya')
+        ->and($html)->toContain('Jl. Industri No. 5')
+        ->and($html)->toContain('0215551234')
+        ->and($html)->toContain('BRG-001')
+        ->and($html)->toContain('Bollpoin')
+        ->and($html)->toContain('TOTAL')
+        ->and($html)->not->toContain('HPP')
+        ->and($html)->not->toContain('Laba');
 });
 
 it('shows a dashed phone when the supplier has none', function () {
@@ -75,8 +79,11 @@ it('shows a dashed phone when the supplier has none', function () {
     ]);
 
     $this->get(route('filament.admin.pembelian.laporan', $purchase))
-        ->assertOk()
-        ->assertSee('---');
+        ->assertOk();
+
+    $html = view('laporan.pembelian', ['header' => $purchase])->render();
+
+    expect($html)->toContain('---');
 });
 
 it('prints the purchase report from the cetak route', function () {
@@ -96,13 +103,20 @@ it('prints the purchase report from the cetak route', function () {
         'subtotal' => 16000,
     ]);
 
-    $this->get(route('filament.admin.pembelian.cetak', $purchase))
-        ->assertOk()
-        ->assertSee('LAPORAN PEMBELIAN')
-        ->assertSee('PB-000001')
-        ->assertSee('Bollpoin')
-        ->assertSee('TOTAL')
-        ->assertDontSee('Export Excel');
+    $response = $this->get(route('filament.admin.pembelian.cetak', $purchase));
+
+    $response->assertOk();
+
+    expect($response->headers->get('content-type'))->toContain('application/pdf')
+        ->and($response->getContent())->toStartWith('%PDF');
+
+    $html = view('laporan.pembelian', ['header' => $purchase])->render();
+
+    expect($html)->toContain('LAPORAN PEMBELIAN')
+        ->and($html)->toContain('PB-000001')
+        ->and($html)->toContain('Bollpoin')
+        ->and($html)->toContain('TOTAL')
+        ->and($html)->not->toContain('Export Excel');
 });
 
 it('exports the purchase report as a CSV with BOM', function () {

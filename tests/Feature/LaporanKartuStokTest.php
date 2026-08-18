@@ -149,16 +149,28 @@ it('prints the stock card report from the cetak route', function () {
         'qty' => 5,
     ]);
 
-    $this->get(route('filament.admin.laporan-kartu-stok.cetak', [
+    $response = $this->get(route('filament.admin.laporan-kartu-stok.cetak', [
         'stock_id' => $stock->id,
         'date_from' => '2026-07-01',
         'date_until' => '2026-07-31',
-    ]))
-        ->assertOk()
-        ->assertSee('LAPORAN KARTU STOK')
-        ->assertSee('Bollpoin')
-        ->assertSee('PB-000001')
-        ->assertSee('Stok Akhir');
+    ]));
+
+    $response->assertOk();
+
+    expect($response->headers->get('content-type'))->toContain('application/pdf')
+        ->and($response->getContent())->toStartWith('%PDF');
+
+    $html = view('laporan.kartu-stok', [
+        'stock' => $stock,
+        'dateFrom' => '2026-07-01',
+        'dateUntil' => '2026-07-31',
+        'rows' => LaporanKartuStokTable::buildRows((string) $stock->id, '2026-07-01', '2026-07-31'),
+    ])->render();
+
+    expect($html)->toContain('LAPORAN KARTU STOK')
+        ->and($html)->toContain('Bollpoin')
+        ->and($html)->toContain('PB-000001')
+        ->and($html)->toContain('Stok Akhir');
 });
 
 it('exports the stock card report as a CSV with BOM', function () {

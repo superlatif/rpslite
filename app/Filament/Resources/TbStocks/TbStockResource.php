@@ -31,7 +31,7 @@ class TbStockResource extends Resource
 
     // protected static ?string $navigationParentItem = MasterInventory::class;
 
-    protected static string|UnitEnum|null $navigationGroup = 'Tabel';
+    protected static string|UnitEnum|null $navigationGroup = 'Inventory';
 
     public static function getNavigationBadge(): ?string
     {

@@ -89,6 +89,13 @@ class ListTrOpnames extends ListRecords
             ->map(function (array $row) {
 
                 $stock = TbStock::findOrFail($row['stock_id']);
+
+                if ($stock->is_jasa) {
+                    throw ValidationException::withMessages([
+                        'details' => 'Jasa tidak memiliki stok sehingga tidak dapat diopname.',
+                    ]);
+                }
+
                 $sistem = (float) $stock->stock;
                 $fisik = (float) ($row['stok_fisik'] ?? 0);
 

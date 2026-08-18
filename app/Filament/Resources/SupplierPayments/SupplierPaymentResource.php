@@ -23,18 +23,13 @@ class SupplierPaymentResource extends Resource
 
     protected static ?int $navigationSort = 8;
 
-    protected static ?string $modelLabel = 'Angsuran Supplier';
+    protected static ?string $modelLabel = 'Angsuran Hutang';
 
     protected static ?string $slug = 'angsuran-supplier';
 
-    protected static ?string $navigationLabel = 'Angsuran Supplier';
+    protected static ?string $navigationLabel = 'Angsuran Hutang';
 
-    protected static string|UnitEnum|null $navigationGroup = 'Transaksi';
-
-    public static function getNavigationBadge(): ?string
-    {
-        return static::getModel()::count();
-    }
+    protected static string|UnitEnum|null $navigationGroup = 'Pembelian';
 
     public static function form(Schema $schema): Schema
     {

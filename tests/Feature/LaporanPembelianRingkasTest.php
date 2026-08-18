@@ -4,6 +4,7 @@ use App\Filament\Resources\LaporanPembelians\Pages\ListLaporanPembelians;
 use App\Models\Supplier;
 use App\Models\TrHeader;
 use App\Models\User;
+use App\Services\PdfReportService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
 
@@ -54,16 +55,29 @@ it('prints the purchase summary from the cetak route', function () {
         'total_amount' => 16000,
     ]);
 
-    $this->get(route('filament.admin.laporan-pembelian.cetak', [
+    $response = $this->get(route('filament.admin.laporan-pembelian.cetak', [
         'date_from' => '2026-08-01',
         'date_until' => '2026-08-31',
-    ]))
-        ->assertOk()
-        ->assertSee('LAPORAN PEMBELIAN')
-        ->assertSee('PB-000001')
-        ->assertSee('Pembelian')
-        ->assertSee('16.000,00')
-        ->assertSee('TOTAL');
+    ]));
+
+    $response->assertOk();
+
+    expect($response->headers->get('content-type'))->toContain('application/pdf')
+        ->and($response->getContent())->toStartWith('%PDF');
+
+    $html = view('laporan.pembelian-ringkas', [
+        'dateFrom' => '2026-08-01',
+        'dateUntil' => '2026-08-31',
+        'supplierId' => '',
+        'trsType' => '',
+        'headers' => PdfReportService::pembelianRingkasHeaders('2026-08-01', '2026-08-31'),
+    ])->render();
+
+    expect($html)->toContain('LAPORAN PEMBELIAN')
+        ->and($html)->toContain('PB-000001')
+        ->and($html)->toContain('Pembelian')
+        ->and($html)->toContain('16.000,00')
+        ->and($html)->toContain('TOTAL');
 });
 
 it('prints all purchases when no dates are provided', function () {
@@ -74,11 +88,12 @@ it('prints all purchases when no dates are provided', function () {
         'total_amount' => 16000,
     ]);
 
-    $this->get(route('filament.admin.laporan-pembelian.cetak'))
-        ->assertOk()
-        ->assertSee('LAPORAN PEMBELIAN')
-        ->assertSee('PB-000001')
-        ->assertSee('16.000,00');
+    $response = $this->get(route('filament.admin.laporan-pembelian.cetak'));
+
+    $response->assertOk();
+
+    expect($response->headers->get('content-type'))->toContain('application/pdf')
+        ->and($response->getContent())->toStartWith('%PDF');
 });
 
 it('exports the purchase summary as a CSV with BOM', function () {

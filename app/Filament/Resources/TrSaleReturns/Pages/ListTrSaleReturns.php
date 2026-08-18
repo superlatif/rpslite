@@ -107,6 +107,10 @@ class ListTrSaleReturns extends ListRecords
                     ->lockForUpdate()
                     ->findOrFail($row['stock_id']);
 
+                if ($stock->is_jasa) {
+                    continue;
+                }
+
                 $stock->increment(
                     'stock',
                     (float) $row['qty']

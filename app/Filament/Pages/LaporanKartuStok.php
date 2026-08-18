@@ -29,9 +29,9 @@ class LaporanKartuStok extends Page implements HasTable
 
     protected static ?string $title = 'Laporan Kartu Stok';
 
-    protected static string|UnitEnum|null $navigationGroup = 'Laporan';
+    protected static string|UnitEnum|null $navigationGroup = 'Inventory';
 
-    protected static ?int $navigationSort = 2;
+    protected static ?int $navigationSort = 5;
 
     protected static ?string $slug = 'laporan-kartu-stok';
 
@@ -53,6 +53,7 @@ class LaporanKartuStok extends Page implements HasTable
                     Select::make('stock_id')
                         ->label('Nama Barang')
                         ->options(fn (): array => TbStock::query()
+                            ->barang()
                             ->orderBy('descr')
                             ->pluck('descr', 'id')
                             ->all())

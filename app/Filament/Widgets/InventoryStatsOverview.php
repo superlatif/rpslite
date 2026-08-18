@@ -12,9 +12,9 @@ class InventoryStatsOverview extends StatsOverviewWidget
 {
     protected function getStats(): array
     {
-        $totalItems = TbStock::query()->count();
-        $totalQty = (float) TbStock::query()->sum('stock');
-        $stockValue = (float) TbStock::query()->sum(DB::raw('stock * harga_pokok'));
+        $totalItems = TbStock::query()->barang()->count();
+        $totalQty = (float) TbStock::query()->barang()->sum('stock');
+        $stockValue = (float) TbStock::query()->barang()->sum(DB::raw('stock * harga_pokok'));
 
         return [
             Stat::make('Total Item', number_format($totalItems, 0, ',', '.'))

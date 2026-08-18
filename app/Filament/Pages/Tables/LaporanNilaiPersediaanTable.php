@@ -18,7 +18,7 @@ class LaporanNilaiPersediaanTable
     public static function configure(Table $table): Table
     {
         return $table
-            ->query(TbStock::query())
+            ->query(TbStock::query()->barang())
             ->columns([
                 TextColumn::make('code')
                     ->label('Kode'),
@@ -82,6 +82,7 @@ class LaporanNilaiPersediaanTable
     public static function buildRows(?string $cateId = null, mixed $onlyAvailable = null): array
     {
         $query = TbStock::query()
+            ->barang()
             ->with('cate')
             ->orderBy('descr');
 

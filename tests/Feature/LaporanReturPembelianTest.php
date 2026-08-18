@@ -59,21 +59,26 @@ it('renders the purchase return report with supplier, source invoice, details an
         'subtotal' => 16000,
     ]);
 
-    $this->get(route('filament.admin.retur-pembelian.laporan', $return))
-        ->assertOk()
-        ->assertSee('LAPORAN RETUR PEMBELIAN')
-        ->assertSee('RPB-000001')
-        ->assertSee('PT Maju Jaya')
-        ->assertSee('Jl. Industri No. 5')
-        ->assertSee('0215551234')
-        ->assertSee('PB-000001')
-        ->assertSee('BRG-001')
-        ->assertSee('Bollpoin')
-        ->assertSee('TOTAL')
-        ->assertSee('Cetak')
-        ->assertSee('Export Excel')
-        ->assertDontSee('HPP')
-        ->assertDontSee('Laba');
+    $response = $this->get(route('filament.admin.retur-pembelian.laporan', $return));
+
+    $response->assertOk();
+
+    expect($response->headers->get('content-type'))->toContain('application/pdf');
+
+    $html = view('laporan.retur-pembelian', ['header' => $return])->render();
+
+    expect($html)->toContain('LAPORAN RETUR PEMBELIAN')
+        ->and($html)->toContain('RPB-000001')
+        ->and($html)->toContain('PT Maju Jaya')
+        ->and($html)->toContain('Jl. Industri No. 5')
+        ->and($html)->toContain('0215551234')
+        ->and($html)->toContain('PB-000001')
+        ->and($html)->toContain('BRG-001')
+        ->and($html)->toContain('Bollpoin')
+        ->and($html)->toContain('TOTAL')
+        ->and($html)->not->toContain('HPP')
+        ->and($html)->not->toContain('Laba')
+        ->and($html)->not->toContain('Export Excel');
 });
 
 it('prints the purchase return report from the cetak route', function () {
@@ -93,13 +98,20 @@ it('prints the purchase return report from the cetak route', function () {
         'subtotal' => 16000,
     ]);
 
-    $this->get(route('filament.admin.retur-pembelian.cetak', $return))
-        ->assertOk()
-        ->assertSee('LAPORAN RETUR PEMBELIAN')
-        ->assertSee('RPB-000001')
-        ->assertSee('Bollpoin')
-        ->assertSee('TOTAL')
-        ->assertDontSee('Export Excel');
+    $response = $this->get(route('filament.admin.retur-pembelian.cetak', $return));
+
+    $response->assertOk();
+
+    expect($response->headers->get('content-type'))->toContain('application/pdf')
+        ->and($response->getContent())->toStartWith('%PDF');
+
+    $html = view('laporan.retur-pembelian', ['header' => $return])->render();
+
+    expect($html)->toContain('LAPORAN RETUR PEMBELIAN')
+        ->and($html)->toContain('RPB-000001')
+        ->and($html)->toContain('Bollpoin')
+        ->and($html)->toContain('TOTAL')
+        ->and($html)->not->toContain('Export Excel');
 });
 
 it('exports the purchase return report as a CSV with BOM', function () {

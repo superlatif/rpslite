@@ -123,7 +123,7 @@ class TrPurchaseReturnForm
                                 ->get()
                                 ->mapWithKeys(
                                     fn (TbStock $stock): array => [
-                                        $stock->id => $stock->code.' - '.$stock->descr,
+                                        $stock->id => $stock->code.' - '.$stock->descr.($stock->is_jasa ? ' (Jasa)' : ''),
                                     ]
                                 )
                                 ->all()

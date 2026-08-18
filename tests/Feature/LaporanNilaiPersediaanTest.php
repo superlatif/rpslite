@@ -1,6 +1,7 @@
 <?php
 
 use App\Filament\Pages\LaporanNilaiPersediaan;
+use App\Filament\Pages\Tables\LaporanNilaiPersediaanTable;
 use App\Models\TbStock;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -52,11 +53,20 @@ it('registers cetak and export excel header actions with the report URL', functi
 it('prints the inventory value report from the cetak route', function () {
     TbStock::factory()->create(['code' => 'BRG-001', 'descr' => 'Bollpoin', 'stock' => 10, 'harga_beli' => 5000]);
 
-    $this->get(route('filament.admin.laporan-nilai-persediaan.cetak'))
-        ->assertOk()
-        ->assertSee('LAPORAN NILAI PERSEDIAAN')
-        ->assertSee('Bollpoin')
-        ->assertSee('TOTAL');
+    $response = $this->get(route('filament.admin.laporan-nilai-persediaan.cetak'));
+
+    $response->assertOk();
+
+    expect($response->headers->get('content-type'))->toContain('application/pdf')
+        ->and($response->getContent())->toStartWith('%PDF');
+
+    $html = view('laporan.nilai-persediaan', [
+        'rows' => LaporanNilaiPersediaanTable::buildRows('', null),
+    ])->render();
+
+    expect($html)->toContain('LAPORAN NILAI PERSEDIAAN')
+        ->and($html)->toContain('Bollpoin')
+        ->and($html)->toContain('TOTAL');
 });
 
 it('exports the inventory value report as a CSV with BOM', function () {

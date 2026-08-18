@@ -1,0 +1,59 @@
+File	Fungsi
+PRD.md	Menjelaskan apa aplikasi yang akan dibuat: tujuan, fitur, user, alur bisnis
+AGENTS.md	Memberikan aturan kepada AI/coding agent tentang bagaimana AI harus bekerja di proyek
+CLAUDE.md	Format instruksi khusus untuk Claude Code
+GEMINI.md	Instruksi khusus untuk Gemini CLI
+README.md	Dokumentasi umum proyek untuk manusia dan AI
+ARCHITECTURE.md	Menjelaskan arsitektur, database, modul, dan hubungan antarbagian
+TASKS.md	Daftar pekerjaan yang harus dikerjakan AI secara bertahap
+
+Kalau tujuan Anda: "AI membuat aplikasi dari awal"
+Saya paling menyarankan struktur seperti ini:
+my-app/
+├── AI/
+│   ├── PRD.md
+│   ├── ARCHITECTURE.md
+│   ├── DATABASE.md
+│   ├── BUSINESS_RULES.md
+│   └── TASKS.md
+│
+├── AGENTS.md
+├── README.md
+└── ...
+Kemudian AGENTS.md menjadi aturan utama AI, sedangkan PRD.md menjadi spesifikasi aplikasinya.
+
+AGENTS.md
+    ↓
+    aturan bagaimana AI bekerja
+
+PRD.md
+    ↓
+    aplikasi apa yang harus dibuat
+
+ARCHITECTURE.md
+    ↓
+    bagaimana aplikasi dirancang
+
+DATABASE.md
+    ↓
+    struktur database
+
+BUSINESS_RULES.md
+    ↓
+    aturan bisnis
+
+TASKS.md
+    ↓
+    pekerjaan yang harus dilakukan AI
+    
+pilihan lain
+docs/
+├── PRD.md
+├── ARCHITECTURE.md
+├── DATABASE.md
+├── BUSINESS_RULES.md
+├── FILAMENT.md
+├── SECURITY.md
+└── ROADMAP.md
+
+AGENTS.md

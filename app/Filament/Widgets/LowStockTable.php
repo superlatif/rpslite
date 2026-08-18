@@ -20,6 +20,7 @@ class LowStockTable extends TableWidget
             ->query(
                 fn (): Builder => TbStock::query()
                     ->with('cate')
+                    ->barang()
                     ->where('stock', '<=', 5)
                     ->orderBy('stock')
                     ->orderBy('descr'),

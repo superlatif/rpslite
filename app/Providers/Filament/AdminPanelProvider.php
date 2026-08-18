@@ -2,16 +2,20 @@
 
 namespace App\Providers\Filament;
 
+use App\Filament\Pages\PengaturanPrinter;
 use App\Filament\Pages\Tables\LaporanKartuStokTable;
 use App\Filament\Pages\Tables\LaporanNilaiPersediaanTable;
 use App\Models\TbStock;
 use App\Models\TrHeader;
+use App\Services\PdfReportService;
 use App\Services\ThermalPrinterService;
 use Carbon\Carbon;
+use Filament\Actions\Action;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
 use Filament\Http\Middleware\DispatchServingFilamentEvent;
+use Filament\Navigation\NavigationGroup;
 use Filament\Pages\Dashboard;
 use Filament\Panel;
 use Filament\PanelProvider;
@@ -62,6 +66,25 @@ class AdminPanelProvider extends PanelProvider
                 DisableBladeIconComponents::class,
                 DispatchServingFilamentEvent::class,
             ])
+            ->globalSearch(false)
+            ->navigationGroups([
+            NavigationGroup::make()
+                 ->label('Inventory')
+                 ->icon('heroicon-o-shopping-cart'),
+            NavigationGroup::make()
+                 ->label('Penjualan')
+                 ->icon('heroicon-o-archive-box')
+                 ->collapsed(),
+            NavigationGroup::make()
+                 ->label('Pembelian')
+                 ->icon('heroicon-o-cog-6-tooth'),
+        ])
+        ->userMenuItems([
+                Action::make('printer_setting')
+                ->url(fn (): string => PengaturanPrinter::getUrl())
+                    ->label('Pengaturan Printer')
+                    ->icon('heroicon-o-printer')
+                ])
             ->authenticatedRoutes(function (): void {
                 Route::get('/penjualan/{trHeader}/struk', function (TrHeader $trHeader, ThermalPrinterService $printer) {
                     abort_unless($trHeader->trr_type === 'SALE', 404);
@@ -95,7 +118,7 @@ class AdminPanelProvider extends PanelProvider
                         ->header('Content-Type', 'text/plain');
                 })->name('penjualan.struk');
 
-                Route::get('/laporan-kartu-stok/cetak', function (Request $request) {
+                Route::get('/laporan-kartu-stok/cetak', function (Request $request, PdfReportService $pdf) {
                     $stockId = (string) $request->query('stock_id', '');
                     $dateFrom = (string) $request->query('date_from', '');
                     $dateUntil = (string) $request->query('date_until', '');
@@ -104,16 +127,9 @@ class AdminPanelProvider extends PanelProvider
 
                     $stock = TbStock::find($stockId);
 
-                    abort_if(is_null($stock), 404);
+                    abort_if(is_null($stock) || $stock->is_jasa, 404);
 
-                    $rows = LaporanKartuStokTable::buildRows($stockId, $dateFrom, $dateUntil);
-
-                    return view('laporan.kartu-stok', [
-                        'stock' => $stock,
-                        'dateFrom' => $dateFrom,
-                        'dateUntil' => $dateUntil,
-                        'rows' => $rows,
-                    ]);
+                    return $pdf->kartuStok($stock, $dateFrom, $dateUntil);
                 })->name('laporan-kartu-stok.cetak');
 
                 Route::get('/laporan-kartu-stok/export', function (Request $request) {
@@ -125,7 +141,7 @@ class AdminPanelProvider extends PanelProvider
 
                     $stock = TbStock::find($stockId);
 
-                    abort_if(is_null($stock), 404);
+                    abort_if(is_null($stock) || $stock->is_jasa, 404);
 
                     $rows = LaporanKartuStokTable::buildRows($stockId, $dateFrom, $dateUntil);
 
@@ -157,13 +173,11 @@ class AdminPanelProvider extends PanelProvider
                     ]);
                 })->name('laporan-kartu-stok.export');
 
-                Route::get('/laporan-nilai-persediaan/cetak', function (Request $request) {
-                    $rows = LaporanNilaiPersediaanTable::buildRows(
+                Route::get('/laporan-nilai-persediaan/cetak', function (Request $request, PdfReportService $pdf) {
+                    return $pdf->nilaiPersediaan(
                         (string) $request->query('cate_id', ''),
                         $request->query('only_available'),
                     );
-
-                    return view('laporan.nilai-persediaan', ['rows' => $rows]);
                 })->name('laporan-nilai-persediaan.cetak');
 
                 Route::get('/laporan-nilai-persediaan/export', function (Request $request) {
@@ -218,46 +232,13 @@ class AdminPanelProvider extends PanelProvider
                     ]);
                 })->name('laporan-nilai-persediaan.export');
 
-                Route::get('/laporan-penjualan/cetak', function (Request $request) {
+                Route::get('/laporan-penjualan/cetak', function (Request $request, PdfReportService $pdf) {
                     $dateFrom = (string) $request->query('date_from', '');
                     $dateUntil = (string) $request->query('date_until', '');
                     $customerId = (string) $request->query('customer_id', '');
                     $trsType = (string) $request->query('trs_type', '');
 
-                    $headers = TrHeader::query()
-                        ->where(function ($q) {
-                            $q->where('trr_type', 'SALE')
-                                ->orWhere('trr_type', 'SALE_RET');
-                        })
-                        ->when(
-                            filled($dateFrom),
-                            fn ($q) => $q->whereDate('trs_date', '>=', $dateFrom)
-                        )
-                        ->when(
-                            filled($dateUntil),
-                            fn ($q) => $q->whereDate('trs_date', '<=', $dateUntil)
-                        )
-                        ->when(
-                            filled($customerId),
-                            fn ($q) => $q->where('customer_id', $customerId)
-                        )
-                        ->when(
-                            filled($trsType) && $trsType !== '',
-                            fn ($q) => $q->where('trs_type', (int) $trsType)
-                        )
-                        ->with('customer')
-                        ->with('details')
-                        ->orderBy('trs_date')
-                        ->orderBy('trs_number')
-                        ->get();
-
-                    return view('laporan.penjualan-ringkas', [
-                        'dateFrom' => $dateFrom,
-                        'dateUntil' => $dateUntil,
-                        'customerId' => $customerId,
-                        'trsType' => $trsType,
-                        'headers' => $headers,
-                    ]);
+                    return $pdf->penjualanRingkas($dateFrom, $dateUntil, $customerId, $trsType);
                 })->name('laporan-penjualan.cetak');
 
                 Route::get('/laporan-penjualan/export', function (Request $request) {
@@ -362,20 +343,16 @@ class AdminPanelProvider extends PanelProvider
                     ]);
                 })->name('laporan-penjualan.export');
 
-                Route::get('/pembelian/{trHeader}/laporan', function (TrHeader $trHeader) {
+                Route::get('/pembelian/{trHeader}/laporan', function (TrHeader $trHeader, PdfReportService $pdf) {
                     abort_unless($trHeader->trr_type === 'PURCHASE', 404);
 
-                    $trHeader->load('supplier', 'details.stock');
-
-                    return view('laporan.pembelian', ['header' => $trHeader, 'autoPrint' => false]);
+                    return $pdf->pembelian($trHeader);
                 })->name('pembelian.laporan');
 
-                Route::get('/pembelian/{trHeader}/cetak', function (TrHeader $trHeader) {
+                Route::get('/pembelian/{trHeader}/cetak', function (TrHeader $trHeader, PdfReportService $pdf) {
                     abort_unless($trHeader->trr_type === 'PURCHASE', 404);
 
-                    $trHeader->load('supplier', 'details.stock');
-
-                    return view('laporan.pembelian', ['header' => $trHeader, 'autoPrint' => true]);
+                    return $pdf->pembelian($trHeader);
                 })->name('pembelian.cetak');
 
                 Route::get('/pembelian/{trHeader}/export', function (TrHeader $trHeader) {
@@ -436,20 +413,16 @@ class AdminPanelProvider extends PanelProvider
                     ]);
                 })->name('pembelian.export');
 
-                Route::get('/penjualan/{trHeader}/laporan', function (TrHeader $trHeader) {
+                Route::get('/penjualan/{trHeader}/laporan', function (TrHeader $trHeader, PdfReportService $pdf) {
                     abort_unless($trHeader->trr_type === 'SALE', 404);
 
-                    $trHeader->load('customer', 'details.stock');
-
-                    return view('laporan.penjualan', ['header' => $trHeader, 'autoPrint' => false]);
+                    return $pdf->penjualan($trHeader);
                 })->name('penjualan.laporan');
 
-                Route::get('/penjualan/{trHeader}/cetak', function (TrHeader $trHeader) {
+                Route::get('/penjualan/{trHeader}/cetak', function (TrHeader $trHeader, PdfReportService $pdf) {
                     abort_unless($trHeader->trr_type === 'SALE', 404);
 
-                    $trHeader->load('customer', 'details.stock');
-
-                    return view('laporan.penjualan', ['header' => $trHeader, 'autoPrint' => true]);
+                    return $pdf->penjualan($trHeader);
                 })->name('penjualan.cetak');
 
                 Route::get('/penjualan/{trHeader}/export', function (TrHeader $trHeader) {
@@ -521,20 +494,16 @@ class AdminPanelProvider extends PanelProvider
                     ]);
                 })->name('penjualan.export');
 
-                Route::get('/retur-penjualan/{trHeader}/laporan', function (TrHeader $trHeader) {
+                Route::get('/retur-penjualan/{trHeader}/laporan', function (TrHeader $trHeader, PdfReportService $pdf) {
                     abort_unless($trHeader->trr_type === 'SALE_RET', 404);
 
-                    $trHeader->load('customer', 'sourceSale', 'details.stock');
-
-                    return view('laporan.retur-penjualan', ['header' => $trHeader, 'autoPrint' => false]);
+                    return $pdf->returPenjualan($trHeader);
                 })->name('retur-penjualan.laporan');
 
-                Route::get('/retur-penjualan/{trHeader}/cetak', function (TrHeader $trHeader) {
+                Route::get('/retur-penjualan/{trHeader}/cetak', function (TrHeader $trHeader, PdfReportService $pdf) {
                     abort_unless($trHeader->trr_type === 'SALE_RET', 404);
 
-                    $trHeader->load('customer', 'sourceSale', 'details.stock');
-
-                    return view('laporan.retur-penjualan', ['header' => $trHeader, 'autoPrint' => true]);
+                    return $pdf->returPenjualan($trHeader);
                 })->name('retur-penjualan.cetak');
 
                 Route::get('/retur-penjualan/{trHeader}/export', function (TrHeader $trHeader) {
@@ -608,20 +577,16 @@ class AdminPanelProvider extends PanelProvider
                     ]);
                 })->name('retur-penjualan.export');
 
-                Route::get('/retur-pembelian/{trHeader}/laporan', function (TrHeader $trHeader) {
+                Route::get('/retur-pembelian/{trHeader}/laporan', function (TrHeader $trHeader, PdfReportService $pdf) {
                     abort_unless($trHeader->trr_type === 'PURCHASE_RET', 404);
 
-                    $trHeader->load('supplier', 'sourcePurchase', 'details.stock');
-
-                    return view('laporan.retur-pembelian', ['header' => $trHeader, 'autoPrint' => false]);
+                    return $pdf->returPembelian($trHeader);
                 })->name('retur-pembelian.laporan');
 
-                Route::get('/retur-pembelian/{trHeader}/cetak', function (TrHeader $trHeader) {
+                Route::get('/retur-pembelian/{trHeader}/cetak', function (TrHeader $trHeader, PdfReportService $pdf) {
                     abort_unless($trHeader->trr_type === 'PURCHASE_RET', 404);
 
-                    $trHeader->load('supplier', 'sourcePurchase', 'details.stock');
-
-                    return view('laporan.retur-pembelian', ['header' => $trHeader, 'autoPrint' => true]);
+                    return $pdf->returPembelian($trHeader);
                 })->name('retur-pembelian.cetak');
 
                 Route::get('/retur-pembelian/{trHeader}/export', function (TrHeader $trHeader) {
@@ -683,45 +648,13 @@ class AdminPanelProvider extends PanelProvider
                     ]);
                 })->name('retur-pembelian.export');
 
-                Route::get('/laporan-pembelian/cetak', function (Request $request) {
+                Route::get('/laporan-pembelian/cetak', function (Request $request, PdfReportService $pdf) {
                     $dateFrom = (string) $request->query('date_from', '');
                     $dateUntil = (string) $request->query('date_until', '');
                     $supplierId = (string) $request->query('supplier_id', '');
                     $trsType = (string) $request->query('trs_type', '');
 
-                    $headers = TrHeader::query()
-                        ->where(function ($q) {
-                            $q->where('trr_type', 'PURCHASE')
-                                ->orWhere('trr_type', 'PURCHASE_RET');
-                        })
-                        ->when(
-                            filled($dateFrom),
-                            fn ($q) => $q->whereDate('trs_date', '>=', $dateFrom)
-                        )
-                        ->when(
-                            filled($dateUntil),
-                            fn ($q) => $q->whereDate('trs_date', '<=', $dateUntil)
-                        )
-                        ->when(
-                            filled($supplierId),
-                            fn ($q) => $q->where('supplier_id', $supplierId)
-                        )
-                        ->when(
-                            filled($trsType) && $trsType !== '',
-                            fn ($q) => $q->where('trs_type', (int) $trsType)
-                        )
-                        ->with('supplier')
-                        ->orderBy('trs_date')
-                        ->orderBy('trs_number')
-                        ->get();
-
-                    return view('laporan.pembelian-ringkas', [
-                        'dateFrom' => $dateFrom,
-                        'dateUntil' => $dateUntil,
-                        'supplierId' => $supplierId,
-                        'trsType' => $trsType,
-                        'headers' => $headers,
-                    ]);
+                    return $pdf->pembelianRingkas($dateFrom, $dateUntil, $supplierId, $trsType);
                 })->name('laporan-pembelian.cetak');
 
                 Route::get('/laporan-pembelian/export', function (Request $request) {

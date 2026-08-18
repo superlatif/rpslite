@@ -12,14 +12,7 @@
             font-size: 12px;
             color: #000;
         }
-        .toolbar { text-align: center; margin: 12px 0; }
-        .toolbar button {
-            font-family: inherit;
-            font-size: 14px;
-            padding: 8px 24px;
-            cursor: pointer;
-        }
-        .report { max-width: 210mm; margin: 0 auto; padding: 10mm; }
+        .report { margin: 0 auto; }
         .center { text-align: center; }
         .right { text-align: right; }
         .brand { font-weight: bold; font-size: 16px; }
@@ -29,10 +22,6 @@
         th, td { border: 1px solid #000; padding: 3px 5px; vertical-align: top; }
         th { background: #eee; }
         .total-row td { font-weight: bold; }
-        @media print {
-            .toolbar { display: none; }
-            body { margin: 0; }
-        }
     </style>
 </head>
 <body>
@@ -41,10 +30,6 @@
         $totalPembelian = 0.0;
         $totalRetur = 0.0;
     @endphp
-
-    <div class="toolbar">
-        <button onclick="window.print()">Cetak Laporan</button>
-    </div>
 
     <div class="report">
         <div class="center brand">{{ config('app.name') }}</div>
@@ -100,11 +85,5 @@
             </tfoot>
         </table>
     </div>
-
-    <script>
-        window.addEventListener('load', function () {
-            window.print();
-        });
-    </script>
 </body>
 </html>

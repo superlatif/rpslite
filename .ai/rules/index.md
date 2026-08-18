@@ -6,8 +6,10 @@ Before planning or editing, find the row whose globs match the file's path and r
 | --- | --- |
 | app/Filament/Resources/CustomerPayments/** | .ai/rules/customer-payments.md |
 | app/Filament/** | .ai/rules/filament.md |
+| resources/views/laporan/** | .ai/rules/laporan.md |
 | app/Models/TbStock.php, app/Models/Customer.php, app/Models/Supplier.php | .ai/rules/models.md |
 | app/Filament/Pages/** | .ai/rules/pages.md |
+| app/Filament/Resources/** | .ai/rules/resources.md |
 | app/Filament/Resources/**/Schemas/** | .ai/rules/schemas.md |
 | app/Filament/Resources/SupplierPayments/** | .ai/rules/supplier-payments.md |
 | app/Filament/Resources/**/Tables/** | .ai/rules/tables.md |

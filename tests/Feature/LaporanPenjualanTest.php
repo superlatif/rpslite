@@ -50,18 +50,23 @@ it('renders the sales report with customer info, details and totals', function (
         'subtotal' => 16000,
     ]);
 
-    $this->get(route('filament.admin.penjualan.laporan', $sale))
-        ->assertOk()
-        ->assertSee('LAPORAN PENJUALAN')
-        ->assertSee('PJ-000001')
-        ->assertSee('Budi Santoso')
-        ->assertSee('Jl. Merdeka No. 10')
-        ->assertSee('081234567890')
-        ->assertSee('BRG-001')
-        ->assertSee('Bollpoin')
-        ->assertSee('TOTAL')
-        ->assertSee('Cetak')
-        ->assertSee('Export Excel');
+    $response = $this->get(route('filament.admin.penjualan.laporan', $sale));
+
+    $response->assertOk();
+
+    expect($response->headers->get('content-type'))->toContain('application/pdf');
+
+    $html = view('laporan.penjualan', ['header' => $sale])->render();
+
+    expect($html)->toContain('LAPORAN PENJUALAN')
+        ->and($html)->toContain('PJ-000001')
+        ->and($html)->toContain('Budi Santoso')
+        ->and($html)->toContain('Jl. Merdeka No. 10')
+        ->and($html)->toContain('081234567890')
+        ->and($html)->toContain('BRG-001')
+        ->and($html)->toContain('Bollpoin')
+        ->and($html)->toContain('TOTAL')
+        ->and($html)->not->toContain('Export Excel');
 });
 
 it('shows a dashed phone when the customer has none', function () {
@@ -73,8 +78,11 @@ it('shows a dashed phone when the customer has none', function () {
     ]);
 
     $this->get(route('filament.admin.penjualan.laporan', $sale))
-        ->assertOk()
-        ->assertSee('---');
+        ->assertOk();
+
+    $html = view('laporan.penjualan', ['header' => $sale])->render();
+
+    expect($html)->toContain('---');
 });
 
 it('prints the sales report from the cetak route', function () {
@@ -94,13 +102,20 @@ it('prints the sales report from the cetak route', function () {
         'subtotal' => 16000,
     ]);
 
-    $this->get(route('filament.admin.penjualan.cetak', $sale))
-        ->assertOk()
-        ->assertSee('LAPORAN PENJUALAN')
-        ->assertSee('PJ-000001')
-        ->assertSee('Bollpoin')
-        ->assertSee('TOTAL')
-        ->assertDontSee('Export Excel');
+    $response = $this->get(route('filament.admin.penjualan.cetak', $sale));
+
+    $response->assertOk();
+
+    expect($response->headers->get('content-type'))->toContain('application/pdf')
+        ->and($response->getContent())->toStartWith('%PDF');
+
+    $html = view('laporan.penjualan', ['header' => $sale])->render();
+
+    expect($html)->toContain('LAPORAN PENJUALAN')
+        ->and($html)->toContain('PJ-000001')
+        ->and($html)->toContain('Bollpoin')
+        ->and($html)->toContain('TOTAL')
+        ->and($html)->not->toContain('Export Excel');
 });
 
 it('exports the sales report as a CSV with BOM', function () {

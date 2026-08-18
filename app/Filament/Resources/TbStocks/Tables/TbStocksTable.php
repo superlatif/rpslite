@@ -10,6 +10,7 @@ use Filament\Actions\EditAction;
 use Filament\Tables\Columns\ImageColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Enums\RecordActionsPosition;
+use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 
 class TbStocksTable
@@ -41,9 +42,19 @@ class TbStocksTable
                     ->label('Harga Jual'),
                 TextColumn::make('cate.descr')
                     ->label('Kategori'),
+                TextColumn::make('is_jasa')
+                    ->label('Jenis')
+                    ->badge()
+                    ->formatStateUsing(fn (bool $state): string => $state ? 'Jasa' : 'Barang')
+                    ->color(fn (bool $state): string => $state ? 'info' : 'success'),
             ])
             ->filters([
-                //
+                SelectFilter::make('is_jasa')
+                    ->label('Jenis')
+                    ->options([
+                        0 => 'Barang',
+                        1 => 'Jasa',
+                    ]),
             ])
             ->recordActions([
                 ActionGroup::make([

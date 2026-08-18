@@ -23,18 +23,13 @@ class CustomerPaymentResource extends Resource
 
     protected static ?int $navigationSort = 7;
 
-    protected static ?string $modelLabel = 'Angsuran Customer';
+    protected static ?string $modelLabel = 'Angsuran Piutang';
 
     protected static ?string $slug = 'angsuran-customer';
 
-    protected static ?string $navigationLabel = 'Angsuran Customer';
+    protected static ?string $navigationLabel = 'Angsuran Piutang';
 
-    protected static string|UnitEnum|null $navigationGroup = 'Transaksi';
-
-    public static function getNavigationBadge(): ?string
-    {
-        return static::getModel()::count();
-    }
+    protected static string|UnitEnum|null $navigationGroup = 'Penjualan';
 
     public static function form(Schema $schema): Schema
     {

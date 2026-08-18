@@ -24,7 +24,7 @@ class LaporanPembelianResource extends Resource
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedRectangleStack;
 
     protected static ?string $recordTitleAttribute = 'Laporan Pembelian';
-     protected static string|UnitEnum|null $navigationGroup = 'Laporan';
+     protected static string|UnitEnum|null $navigationGroup = 'Pembelian';
 
     protected static ?int $navigationSort = 17;
 

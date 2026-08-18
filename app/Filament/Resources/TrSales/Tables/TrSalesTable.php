@@ -115,6 +115,11 @@ class TrSalesTable
                         ->icon(Heroicon::OutlinedDocumentText)
                         ->url(fn (TrHeader $record): string => route('filament.admin.penjualan.laporan', $record))
                         ->openUrlInNewTab(),
+                    Action::make('exportExcel')
+                        ->label('Export Excel')
+                        ->icon(Heroicon::OutlinedArrowDownTray)
+                        ->url(fn (TrHeader $record): string => route('filament.admin.penjualan.export', $record))
+                        ->openUrlInNewTab(),
                     Action::make('cetakStruk')
                         ->label('Cetak Struk')
                         ->icon(Heroicon::OutlinedPrinter)

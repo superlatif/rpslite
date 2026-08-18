@@ -44,6 +44,7 @@ class TrOpnameForm
                         Select::make('stock_id')
                             ->label('Barang')
                             ->options(fn (): array => TbStock::query()
+                                ->barang()
                                 ->orderBy('descr')
                                 ->get()
                                 ->mapWithKeys(

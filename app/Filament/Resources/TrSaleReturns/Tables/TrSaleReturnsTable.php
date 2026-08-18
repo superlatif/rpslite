@@ -119,6 +119,11 @@ class TrSaleReturnsTable
                         ->icon(Heroicon::OutlinedDocumentText)
                         ->url(fn (TrHeader $record): string => route('filament.admin.retur-penjualan.laporan', $record))
                         ->openUrlInNewTab(),
+                    Action::make('exportExcel')
+                        ->label('Export Excel')
+                        ->icon(Heroicon::OutlinedArrowDownTray)
+                        ->url(fn (TrHeader $record): string => route('filament.admin.retur-penjualan.export', $record))
+                        ->openUrlInNewTab(),
                 ]),
             ], position: RecordActionsPosition::BeforeColumns)
 

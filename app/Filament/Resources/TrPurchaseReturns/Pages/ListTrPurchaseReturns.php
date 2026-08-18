@@ -107,6 +107,10 @@ class ListTrPurchaseReturns extends ListRecords
                     ->lockForUpdate()
                     ->findOrFail($row['stock_id']);
 
+                if ($stock->is_jasa) {
+                    continue;
+                }
+
                 if ((float) $stock->stock < (float) $row['qty']) {
                     throw ValidationException::withMessages([
                         "details.{$index}.stock_id" => "Stok '{$stock->descr}' hanya tersedia {$stock->stock}.",

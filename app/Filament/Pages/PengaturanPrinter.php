@@ -31,6 +31,11 @@ class PengaturanPrinter extends Page
 
     protected static string|UnitEnum|null $navigationGroup = 'Pengaturan';
 
+    public static function shouldRegisterNavigation(): bool
+    {
+        return false;
+    }
+
     /**
      * @var array<string, mixed> | null
      */

@@ -21,7 +21,16 @@ class TbStockFactory extends Factory
             'harga_jual' => fake()->randomFloat(2, 1000, 100000),
             'harga_pokok' => 0,
             'stock' => 0,
+            'is_jasa' => false,
             'tb_cate_id' => TbCate::factory(),
         ];
+    }
+
+    public function jasa(): static
+    {
+        return $this->state(fn (): array => [
+            'is_jasa' => true,
+            'stock' => 0,
+        ]);
     }
 }

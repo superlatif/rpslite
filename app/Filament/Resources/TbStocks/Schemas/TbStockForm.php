@@ -8,6 +8,7 @@ use App\Models\TbStock;
 use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\Toggle;
 use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Group;
 use Filament\Schemas\Schema;
@@ -62,10 +63,14 @@ class TbStockForm
                         ->createOptionForm(fn (): array => TbCateForm::components())
                         ->createOptionUsing(fn (array $data) => TbCate::create($data)->getKey()),
                 ]),
+                Toggle::make('is_jasa')
+                    ->label('Jasa (tanpa stok)')
+                    ->helperText('Jika diaktifkan, item dianggap jasa dan tidak memengaruhi stok.')
+                    ->live(),
             ])->columnSpanFull(),
             TextInput::make('descr')
                 ->columnSpanFull()
-                ->label('Nama Barang')
+                ->label('Nama Barang/Jasa')
                 ->required(),
             Group::make([
                 Grid::make(3)->schema([

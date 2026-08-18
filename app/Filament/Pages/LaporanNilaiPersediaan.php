@@ -24,9 +24,9 @@ class LaporanNilaiPersediaan extends Page implements HasTable
 
     protected static ?string $title = 'Laporan Nilai Persediaan';
 
-    protected static string|UnitEnum|null $navigationGroup = 'Laporan';
+    protected static string|UnitEnum|null $navigationGroup = 'Inventory';
 
-    protected static ?int $navigationSort = 3;
+    protected static ?int $navigationSort = 7;
 
     protected static ?string $slug = 'laporan-nilai-persediaan';
 

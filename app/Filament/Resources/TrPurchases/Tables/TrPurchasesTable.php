@@ -111,6 +111,11 @@ class TrPurchasesTable
                         ->icon(Heroicon::OutlinedDocumentText)
                         ->url(fn (TrHeader $record): string => route('filament.admin.pembelian.laporan', $record))
                         ->openUrlInNewTab(),
+                    Action::make('exportExcel')
+                        ->label('Export Excel')
+                        ->icon(Heroicon::OutlinedArrowDownTray)
+                        ->url(fn (TrHeader $record): string => route('filament.admin.pembelian.export', $record))
+                        ->openUrlInNewTab(),
                 ]),
             ], position: RecordActionsPosition::BeforeColumns)
 
